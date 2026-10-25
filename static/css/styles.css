@@ -279,3 +279,24 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
 .map-vignette{z-index:400;pointer-events:none}
 .device-frame{background:linear-gradient(145deg,#f4f0e7 0%,#85858a 9%,#26272b 20%,#b6b3ac 50%,#33343a 75%,#e4dfd5 100%)}
 @media(max-width:600px){.ride-sheet{height:45%;top:55%;bottom:0;padding-bottom:calc(75px + env(safe-area-inset-bottom))}.ride-sheet[data-stage="active"]{padding-bottom:calc(92px + env(safe-area-inset-bottom))}.dynamic-island.expanded{width:min(242px,68vw);height:48px}}
+/* Sleek Luxury Vehicle Marker */
+.yard-car-marker {
+  background: #111318 !important;
+  border: 1.5px solid #F59E0B !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  width: 38px !important;
+  height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.yard-car-marker::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: #FBBF24;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #F59E0B;
+}
