@@ -8,6 +8,10 @@
   const localRidesStorageKey = "yardride-local-rides";
   let toastTimer;
   let localApiMode = !navigator.onLine;
+  let sharedState = null;
+  let statePollInFlight = false;
+  let statePollRequested = false;
+  let lastStateRevision = null;
   const compactPlaceName = name => name.startsWith("Sovereign Centre") ? "Sovereign Centre" : name;
   const localDrivers = [
     { id: "drv-01", name: "Dwayne Campbell", vehicle: "Toyota Axio", plate: "PPV 4829 JA", rating: 4.9, lat: 18.012, lng: -76.798, available: true },
@@ -40,7 +44,7 @@
         bodyRideId = null;
       }
     }
-    if (localRideForUrl(url) || (bodyRideId && readLocalState().rides.some(ride => ride.id === bodyRideId))) {
+    if (localRideForUrl(url) || (bodyRideId?.startsWith("local-") && readLocalState().rides.some(ride => ride.id === bodyRideId))) {
       return localApi(url, options);
     }
     if (localApiMode) return localApi(url, options);
@@ -119,6 +123,7 @@
 
   function cacheApiResponse(url, data) {
     const state = readLocalState();
+    if (Number.isInteger(data.revision)) state.revision = data.revision;
     if (Array.isArray(data.rides)) {
       const serverIds = new Set(data.rides.map(ride => ride.id));
       const pendingLocalRides = state.rides.filter(ride => ride.id.startsWith("local-") && !serverIds.has(ride.id));
@@ -132,7 +137,7 @@
       else state.rides[index] = data.ride;
       if (data.ride.driver) {
         const driver = state.drivers.find(item => item.id === data.ride.driver.id);
-        if (driver) driver.available = data.ride.status === "completed";
+        if (driver) driver.available = ["completed", "cancelled"].includes(data.ride.status);
       }
     }
     saveLocalState(state);
@@ -140,7 +145,7 @@
 
   function localRideForUrl(url) {
     const match = new URL(url, location.origin).pathname.match(/^\/api\/rides\/([^/]+)(?:\/(?:status|action))?$/);
-    return match ? readLocalState().rides.some(ride => ride.id === match[1]) : false;
+    return match ? match[1].startsWith("local-") && readLocalState().rides.some(ride => ride.id === match[1]) : false;
   }
 
   function localApi(url, options) {
@@ -167,6 +172,7 @@
       fleetDriver.available = false;
       ride.driver = { ...fleetDriver, verified: true, ice_cold_ac: true, eta_minutes: driver.eta_minutes || 5 };
       ride.status = "assigned";
+      ride.state = "driver_assigned";
       ride.assigned_at = now;
       if (fare !== undefined) {
         ride.fare_jmd = fare;
@@ -181,7 +187,7 @@
     let result;
 
     if (path === "/api/state" && method === "GET") {
-      result = { drivers: state.drivers, rides: state.rides, dashboard: dashboard() };
+      result = { revision: state.revision || 0, drivers: state.drivers, rides: state.rides, dashboard: dashboard() };
     } else if (path === "/api/drivers" && method === "GET") {
       result = { drivers: state.drivers };
     } else if (path === "/api/rides" && method === "GET") {
@@ -194,6 +200,7 @@
       const ride = {
         id: `local-${Date.now().toString(36)}`,
         status: body.mode === "negotiate" ? "negotiating" : "searching",
+        state: body.mode === "negotiate" ? "bid_broadcasted" : "searching",
         mode: body.mode || "instant", pickup: body.pickup, dropoff: body.dropoff,
         tier: body.tier || "express", tier_name: tier.name, payment: body.payment || "Cash (JMD)",
         passenger: body.passenger || "Island Rider", notes: body.notes || [], party_size: Number(body.party_size) || 1,
@@ -235,14 +242,16 @@
       if (!ride) throw new Error("That ride is not available in local mode.");
       if (body.action === "cancel" && ["searching", "negotiating", "assigned", "arrived", "in_transit"].includes(ride.status)) {
         ride.status = "cancelled";
+        ride.state = "cancelled";
         ride.updated_at = now;
         const driver = state.drivers.find(item => item.id === ride.driver?.id);
         if (driver) driver.available = true;
         result = { ride };
       } else if (body.action === "accept") result = { ride: assign(ride, state.drivers.find(driver => driver.available), ride.mode === "negotiate" ? ride.fare_jmd : undefined) };
-      else if (body.action === "arrive" && ride.status === "assigned") { ride.status = "arrived"; ride.updated_at = now; result = { ride }; }
-      else if (body.action === "complete" && ride.status === "arrived") {
-        ride.status = "completed"; ride.updated_at = now;
+      else if (body.action === "arrive" && ride.status === "assigned") { ride.status = "arrived"; ride.state = "arrived"; ride.updated_at = now; result = { ride }; }
+      else if (body.action === "start" && ride.status === "arrived") { ride.status = "in_transit"; ride.state = "in_transit"; ride.updated_at = now; result = { ride }; }
+      else if (body.action === "complete" && ride.status === "in_transit") {
+        ride.status = "completed"; ride.state = "completed"; ride.updated_at = now;
         const driver = state.drivers.find(item => item.id === ride.driver?.id);
         if (driver) driver.available = true;
         result = { ride };
@@ -254,6 +263,7 @@
     } else {
       throw new Error("YARDRIDE is offline. Reconnect to submit this action.");
     }
+    if (method !== "GET") state.revision = (state.revision || 0) + 1;
     saveLocalState(state);
     return result;
   }
@@ -276,6 +286,31 @@
     completed: "Completed",
   };
 
+  async function pollSharedState() {
+    if (statePollInFlight) {
+      statePollRequested = true;
+      return;
+    }
+    statePollInFlight = true;
+    try {
+      sharedState = await api("/api/state");
+      const revision = Number.isInteger(sharedState.revision) ? sharedState.revision : null;
+      if (lastStateRevision !== revision) {
+        lastStateRevision = revision;
+        window.dispatchEvent(new CustomEvent("yardride:state", { detail: sharedState }));
+      }
+      window.dispatchEvent(new CustomEvent("yardride:telemetry", { detail: sharedState }));
+    } catch (error) {
+      console.warn("Could not synchronize dispatch state:", error.message);
+    } finally {
+      statePollInFlight = false;
+      if (statePollRequested) {
+        statePollRequested = false;
+        pollSharedState();
+      }
+    }
+  }
+
   initTabs();
   initRider();
   initDriver();
@@ -284,6 +319,8 @@
   initFounderTracker();
   updateStatusClock();
   setInterval(updateStatusClock, 60000);
+  pollSharedState();
+  setInterval(pollSharedState, 1000);
 
   function updateStatusClock() {
     const clock = $("#status-time");
@@ -293,6 +330,15 @@
   function initTabs() {
     const tabs = $$(".tab-button");
     const views = $$(".tab-view");
+    const indicator = $(".tab-active-indicator");
+    const moveIndicator = button => {
+      if (!button || !indicator) return;
+      const nav = button.parentElement;
+      const navBounds = nav.getBoundingClientRect();
+      const bounds = button.getBoundingClientRect();
+      indicator.style.width = `${bounds.width}px`;
+      indicator.style.transform = `translateX(${bounds.left - navBounds.left}px)`;
+    };
     const chooseTab = (requested, updateLocation) => {
       const tab = views.some(view => view.dataset.view === requested) ? requested : "ride";
       tabs.forEach(button => {
@@ -300,6 +346,7 @@
         button.classList.toggle("active", active);
         if (active) button.setAttribute("aria-current", "page");
         else button.removeAttribute("aria-current");
+        if (active) moveIndicator(button);
       });
       views.forEach(view => {
         const active = view.dataset.view === tab;
@@ -320,6 +367,8 @@
     chooseTab(initialTab || "ride", false);
     tabs.forEach(button => button.addEventListener("click", () => chooseTab(button.dataset.tab, true)));
     $$("[data-jump]").forEach(button => button.addEventListener("click", () => chooseTab(button.dataset.jump, true)));
+    $("#dynamic-island")?.addEventListener("click", () => chooseTab("ride", true));
+    window.addEventListener("resize", () => moveIndicator(tabs.find(button => button.classList.contains("active"))));
     window.addEventListener("popstate", () => chooseTab(location.hash.slice(1), false));
   }
 
@@ -343,24 +392,29 @@
     let routeRequest = 0;
     let currentRideId = localStorage.getItem("yardride-current-ride");
     let currentRideStatus = null;
-    let ridePollTimer;
     let routeLayer;
     let routeGlowLayer;
     let pickupMarker;
     let dropoffMarker;
+    let vehicleIconSequence = 0;
     let requestedFare = 0;
     let offersSignature = "";
     let partySize = 1;
     const selectedNotes = new Set();
     const driverMarkers = new Map();
+    const driverFrames = new Map();
+    const modeButtons = $$(".booking-mode [data-mode]");
 
     const icon = (className, html) => L.divIcon({ className: "", html: `<span class="${className}">${html}</span>`, iconSize: [31, 31], iconAnchor: [15, 15] });
-    const carIcon = bearing => L.divIcon({
-      className: "",
-      html: `<span class="vehicle-vector" style="--bearing:${bearing}deg"><svg viewBox="0 0 40 48" aria-hidden="true"><defs><linearGradient id="car-body" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fff0bc"/><stop offset=".32" stop-color="#fbbf24"/><stop offset="1" stop-color="#b45309"/></linearGradient><linearGradient id="car-glass" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#a5f3fc"/><stop offset=".55" stop-color="#334155"/><stop offset="1" stop-color="#0f172a"/></linearGradient></defs><path d="M12 5 20 1l8 4 7 11v23l-5 7H10l-5-7V16z" fill="url(#car-body)" stroke="#fff0c2" stroke-width="1.8"/><path d="m13 10 7-4 7 4 3 9H10z" fill="url(#car-glass)" stroke="#dbeafe" stroke-opacity=".5"/><path d="M10 25h20v10H10z" fill="#20242b" stroke="#fff2c6" stroke-opacity=".35"/><path d="M8 38h5m14 0h5" stroke="#fff0b3" stroke-width="3" stroke-linecap="round"/><path d="M7 13 3 16m30-3 4 3" stroke="#fff8d6" stroke-width="2" stroke-linecap="round" class="vehicle-headlights"/></svg></span>`,
-      iconSize: [35, 42],
-      iconAnchor: [17, 21],
-    });
+    const carIcon = bearing => {
+      const id = `yardride-car-${vehicleIconSequence++}`;
+      return L.divIcon({
+        className: "",
+        html: `<span class="vehicle-vector" style="--bearing:${bearing}deg"><svg viewBox="0 0 40 48" aria-hidden="true"><defs><linearGradient id="${id}-body" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fff0bc"/><stop offset=".32" stop-color="#fbbf24"/><stop offset="1" stop-color="#b45309"/></linearGradient><linearGradient id="${id}-glass" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#a5f3fc"/><stop offset=".55" stop-color="#334155"/><stop offset="1" stop-color="#0f172a"/></linearGradient><linearGradient id="${id}-beam" x1="0" x2="0" y1="1" y2="0"><stop stop-color="#fbbf24" stop-opacity=".48"/><stop offset="1" stop-color="#fbbf24" stop-opacity="0"/></linearGradient></defs><path class="vehicle-beam" d="M11 7 -8 -30 14 -2zM29 7 48 -30 26 -2z" fill="url(#${id}-beam)"/><path d="M12 5 20 1l8 4 7 11v23l-5 7H10l-5-7V16z" fill="url(#${id}-body)" stroke="#fff0c2" stroke-width="1.8"/><path d="m13 10 7-4 7 4 3 9H10z" fill="url(#${id}-glass)" stroke="#dbeafe" stroke-opacity=".5"/><path d="M10 25h20v10H10z" fill="#20242b" stroke="#fff2c6" stroke-opacity=".35"/><path d="M8 38h5m14 0h5" stroke="#fff0b3" stroke-width="3" stroke-linecap="round"/><path d="M7 13 3 16m30-3 4 3" stroke="#fff8d6" stroke-width="2" stroke-linecap="round" class="vehicle-headlights"/></svg></span>`,
+        iconSize: [35, 42],
+        iconAnchor: [17, 21],
+      });
+    };
     pickupMarker = L.marker([pickup.lat, pickup.lng], { icon: icon("pickup-pin", "●"), draggable: true }).addTo(map);
     dropoffMarker = L.marker([dropoff.lat, dropoff.lng], { icon: icon("dropoff-pin", "◆"), draggable: true }).addTo(map);
     pickupMarker.on("dragend", event => setPoint("pickup", event.target.getLatLng()));
@@ -510,30 +564,42 @@
       share.dataset.shareText = `YARDRIDE squad fare split: ${count} riders, $${money(fare)} JMD total (${currency === "JMD" ? `$${money(amount)} JMD` : `US$${(amount / 158).toFixed(2)}`} each). ${pickup.name} to ${dropoff.name}. Pay your share with Lynk or Cash.`;
     }
 
-    async function refreshDrivers() {
-      try {
-        const { drivers } = await api("/api/state");
-        drivers.forEach(driver => {
-          const existing = driverMarkers.get(driver.id);
-          const point = [driver.lat, driver.lng];
-          if (existing) {
-            if (driver.id !== movingDriver) {
-              const previous = existing._yardridePosition || existing.getLatLng();
-              const bearing = bearingBetween(previous, { lat: driver.lat, lng: driver.lng });
-              existing.setIcon(carIcon(bearing));
-              existing.setLatLng(point);
-              existing._yardridePosition = { lat: driver.lat, lng: driver.lng };
-            }
+    function refreshDrivers(drivers = []) {
+      drivers.forEach(driver => {
+        const point = [driver.lat, driver.lng];
+        const existing = driverMarkers.get(driver.id);
+        if (existing) {
+          if (driver.id !== movingDriver) {
+            const origin = existing.getLatLng();
+            const target = L.latLng(point);
+            const vector = existing.getElement()?.querySelector(".vehicle-vector");
+            if (vector) vector.style.setProperty("--bearing", `${bearingBetween(origin, target)}deg`);
+            const previousFrame = driverFrames.get(driver.id);
+            if (previousFrame) cancelAnimationFrame(previousFrame);
+            const started = performance.now();
+            const duration = 900;
+            const animate = now => {
+              const progress = Math.min(1, (now - started) / duration);
+              const eased = 1 - (1 - progress) ** 3;
+              existing.setLatLng([
+                origin.lat + (target.lat - origin.lat) * eased,
+                origin.lng + (target.lng - origin.lng) * eased,
+              ]);
+              if (progress < 1) {
+                driverFrames.set(driver.id, requestAnimationFrame(animate));
+              } else {
+                driverFrames.delete(driver.id);
+                existing._yardridePosition = { lat: target.lat, lng: target.lng };
+              }
+            };
+            driverFrames.set(driver.id, requestAnimationFrame(animate));
           }
-          else {
-            const marker = L.marker(point, { icon: carIcon(0) }).bindPopup(`<b>${driver.plate}</b><br>${driver.vehicle} · ★ ${driver.rating} · Ice Cold A/C ✓`).addTo(map);
-            marker._yardridePosition = { lat: driver.lat, lng: driver.lng };
-            driverMarkers.set(driver.id, marker);
-          }
-        });
-      } catch (error) {
-        console.warn("Could not refresh PPV drivers:", error.message);
-      }
+        } else {
+          const marker = L.marker(point, { icon: carIcon(0) }).bindPopup(`<b>${driver.plate}</b><br>${driver.vehicle} · ★ ${driver.rating} · Ice Cold A/C ✓`).addTo(map);
+          marker._yardridePosition = { lat: driver.lat, lng: driver.lng };
+          driverMarkers.set(driver.id, marker);
+        }
+      });
     }
 
     function showRide(ride) {
@@ -541,7 +607,7 @@
       if (ride.mode === "negotiate") {
         bookingMode = "negotiate";
         requestedFare = ride.fare_jmd;
-        $$("[data-mode]").forEach(button => button.classList.toggle("selected", button.dataset.mode === bookingMode));
+        modeButtons.forEach(button => button.classList.toggle("selected", button.dataset.mode === bookingMode));
         updateQuote();
       }
       const sheet = $(".ride-sheet");
@@ -645,33 +711,30 @@
       moveFrame = requestAnimationFrame(animate);
     }
 
-    async function pollRide() {
-      if (!currentRideId) return;
-      try {
-        const { ride } = await api(`/api/rides/${currentRideId}/status`);
-        showRide(ride);
-        if (ride.status === "completed") {
-          clearInterval(ridePollTimer);
-          toast("Trip complete. Thanks for riding with YARDRIDE.");
-        }
-      } catch (error) {
-        clearInterval(ridePollTimer);
-        if (error.message === "That ride is not available in local mode.") {
-          currentRideId = null;
-          currentRideStatus = null;
-          localStorage.removeItem("yardride-current-ride");
-          $("#book-ride").disabled = false;
-          $(".ride-sheet").dataset.stage = "booking";
-          $(".ride-sheet").dataset.status = "";
-          $("#booking-controls").setAttribute("aria-hidden", "false");
-          $("#ride-live").setAttribute("aria-hidden", "true");
-          updateIsland(null);
-          toast("That trip is no longer available. You can request a new ride.");
-        } else {
-          console.warn("Could not refresh the active ride:", error.message);
-        }
+    let completedRideNotified = null;
+    function syncRiderState(state) {
+      if (!state) return;
+      refreshDrivers(state.drivers);
+      const rides = state.rides || [];
+      let ride = rides.find(item => item.id === currentRideId);
+      const activeRide = rides.find(item => ["searching", "negotiating", "assigned", "arrived", "in_transit"].includes(item.status));
+      if (activeRide && (!ride || ["completed", "cancelled"].includes(ride.status))) ride = activeRide;
+      if (!ride) return;
+      currentRideId = ride.id;
+      currentRideStatus = ride.status;
+      localStorage.setItem("yardride-current-ride", ride.id);
+      showRide(ride);
+      if (ride.status === "completed" && completedRideNotified !== ride.id) {
+        completedRideNotified = ride.id;
+        toast("Trip complete. Thanks for riding with YARDRIDE.");
       }
     }
+    window.addEventListener("yardride:state", event => syncRiderState(event.detail));
+    window.addEventListener("yardride:telemetry", event => {
+      refreshDrivers(event.detail?.drivers);
+      const current = event.detail?.rides?.find(ride => ride.id === currentRideId);
+      if (current) updateIsland(current);
+    });
 
     const routeControl = $(".route-map-control");
     const routePicker = $("#route-picker");
@@ -723,9 +786,9 @@
       if (bookingMode === "negotiate") requestedFare = estimateQuote(routeDistance, selectedTier);
       updateQuote();
     }));
-    $$("[data-mode]").forEach(button => button.addEventListener("click", () => {
+    modeButtons.forEach(button => button.addEventListener("click", () => {
       bookingMode = button.dataset.mode;
-      $$("[data-mode]").forEach(item => item.classList.toggle("selected", item === button));
+      modeButtons.forEach(item => item.classList.toggle("selected", item === button));
       $("#bid-panel").classList.toggle("is-visible", bookingMode === "negotiate");
       $("#bid-panel").setAttribute("aria-hidden", String(bookingMode !== "negotiate"));
       requestedFare = estimateQuote(routeDistance, selectedTier);
@@ -756,8 +819,6 @@
       window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener");
     });
     $("#book-another").addEventListener("click", () => {
-      if (ridePollTimer) clearInterval(ridePollTimer);
-      ridePollTimer = null;
       currentRideId = null;
       currentRideStatus = null;
       localStorage.removeItem("yardride-current-ride");
@@ -767,7 +828,7 @@
       requestedFare = 0;
       selectedNotes.clear();
       $$(".note-chip").forEach(button => button.classList.remove("selected"));
-      $$("[data-mode]").forEach(button => button.classList.toggle("selected", button.dataset.mode === "instant"));
+      modeButtons.forEach(button => button.classList.toggle("selected", button.dataset.mode === "instant"));
       $("#bid-panel").classList.remove("is-visible");
       $("#bid-panel").setAttribute("aria-hidden", "true");
       $("#trip-extras-details").open = false;
@@ -791,11 +852,8 @@
           body: JSON.stringify({ action: "cancel" }),
         });
         showRide(ride);
-        if (ridePollTimer) clearInterval(ridePollTimer);
-        ridePollTimer = null;
         toast("Ride cancelled. You can request another ride.");
-        window.dispatchEvent(new Event("yardride:dispatch-refresh"));
-        window.dispatchEvent(new Event("yardride:activity-refresh"));
+        pollSharedState();
       } catch (error) {
         toast(error.message);
       } finally {
@@ -814,8 +872,7 @@
         showRide(ride);
         if (action === "accept_match") toast("Driver matched. Your verified PPV is on the way.");
         else toast("Counter-bid sent to your driver.");
-        window.dispatchEvent(new Event("yardride:dispatch-refresh"));
-        window.dispatchEvent(new Event("yardride:activity-refresh"));
+        pollSharedState();
       } catch (error) {
         toast(error.message);
         button.disabled = false;
@@ -823,13 +880,12 @@
     });
     $("#locate-btn").addEventListener("click", () => map.flyTo([18.0179, -76.8099], 13));
     $("#book-ride").addEventListener("click", async () => {
-      if (currentRideId && currentRideStatus !== "completed") {
+      if (currentRideId && !["completed", "cancelled"].includes(currentRideStatus)) {
         toast("Your current ride is still active.");
         return;
       }
       const button = $("#book-ride");
       button.disabled = true;
-      if (ridePollTimer) clearInterval(ridePollTimer);
       currentRideId = null;
       currentRideStatus = null;
       $("#book-ride").disabled = false;
@@ -854,9 +910,7 @@
         currentRideId = ride.id;
         localStorage.setItem("yardride-current-ride", ride.id);
         showRide(ride);
-        ridePollTimer = setInterval(pollRide, 1000);
-        window.dispatchEvent(new Event("yardride:dispatch-refresh"));
-        window.dispatchEvent(new Event("yardride:activity-refresh"));
+        pollSharedState();
         toast(bookingMode === "negotiate" ? "Offer broadcast. Nearby PPV drivers are responding." : "Ride requested. Finding your verified PPV driver.");
       } catch (error) {
         button.disabled = false;
@@ -865,75 +919,77 @@
     });
 
     updateRoute();
-    refreshDrivers();
-    setInterval(refreshDrivers, 1200);
-    if (currentRideId) pollRide().then(() => {
-      if (currentRideId) ridePollTimer = setInterval(pollRide, 1000);
-    });
+    if (sharedState) syncRiderState(sharedState);
   }
 
   function initDriver() {
     const list = $("#ride-pings");
-    let updating = false;
-    async function refresh() {
-      if (updating) return;
-      updating = true;
-      try {
-        const { rides } = await api("/api/state");
-        const active = rides.filter(ride => ride.status !== "completed" && ride.status !== "cancelled");
-        const completed = rides.filter(ride => ride.status === "completed").length;
-        $("#driver-completed").textContent = completed;
-        if (!active.length) {
-          list.innerHTML = '<div class="empty-state">No active pings right now. New requests appear here automatically.</div>';
-          return;
-        }
-        list.innerHTML = active.map(ride => {
-          const action = ride.status === "searching" || ride.status === "negotiating" ? "accept" : (ride.status === "assigned" ? "arrive" : "complete");
-          const label = action === "accept" ? "ACCEPT RIDE" : (action === "arrive" ? "ARRIVE AT PICKUP" : "COMPLETE TRIP");
-          const actionMarkup = ride.status === "searching" || ride.status === "negotiating" || ride.status === "assigned" || ride.status === "arrived"
-            ? `<button class="action-button" data-ride="${ride.id}" data-action="${action}">${label}</button>`
-            : `<span class="status-badge ${ride.status}">${statusLabels[ride.status]}</span>`;
-          return `<article class="ride-item">
-            <div class="ride-item-top"><b>${escapeHtml(ride.passenger)}</b><small>${new Date(ride.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></div>
-            <div class="ride-route"><span><small>PICKUP</small><br>${escapeHtml(ride.pickup.label)}</span><span><small>DROP-OFF</small><br>${escapeHtml(ride.dropoff.label)}</span></div>
-            <div class="ride-meta"><span>${ride.distance_km} km · ${ride.minutes} min · ${escapeHtml(ride.tier_name)}</span><b>$${money(ride.fare_jmd)} JMD payout</b></div>
-            ${ride.notes?.length ? `<div class="dispatch-notes">✦ DRIVER NOTE · ${ride.notes.map(escapeHtml).join(" · ")}</div>` : ""}
-            ${ride.pin && ride.driver ? `<div class="dispatch-pin">RIDER SAFETY PIN <b>${escapeHtml(ride.pin)}</b></div>` : ""}
-            ${actionMarkup}
-          </article>`;
-        }).join("");
-        $("#drive-alert").classList.toggle("hidden", !rides.some(ride => ride.status === "searching"));
-      } catch (error) {
-        toast(error.message);
-      } finally {
-        updating = false;
+    function refresh(state = sharedState) {
+      if (!state) return;
+      const rides = state.rides || [];
+      const active = rides.filter(ride => !["completed", "cancelled"].includes(ride.status));
+      $("#driver-completed").textContent = rides.filter(ride => ride.status === "completed").length;
+      if (!active.length) {
+        list.innerHTML = '<div class="empty-state">No active pings right now. New requests appear here automatically.</div>';
+        $("#drive-alert").classList.add("hidden");
+        return;
       }
+      list.innerHTML = active.map(ride => {
+        const action = ride.status === "searching" || ride.status === "negotiating" ? "accept"
+          : (ride.status === "assigned" ? "arrive" : (ride.status === "arrived" ? "start" : (ride.status === "in_transit" ? "complete" : null)));
+        const labels = { accept: "ACCEPT RIDE", arrive: "ARRIVE AT PICKUP", start: "START TRIP", complete: "COMPLETE TRIP" };
+        const actionMarkup = action
+          ? `<button class="action-button" data-ride="${ride.id}" data-action="${action}">${labels[action]}</button>`
+          : `<span class="status-badge ${ride.status}">${statusLabels[ride.status]}</span>`;
+        const nearest = (state.drivers || []).filter(driver => driver.available)
+          .map(driver => haversine(driver, ride.pickup))
+          .sort((a, b) => a - b)[0];
+        const counterOffers = ride.status === "negotiating" ? (ride.counter_offers || []).map(offer => `
+          <button class="action-button counter-dispatch-button" data-ride="${ride.id}" data-action="accept_match" data-driver="${offer.id}">
+            ACCEPT ${escapeHtml(offer.plate)} · $${money(offer.fare_jmd)} JMD
+          </button>`).join("") : "";
+        return `<article class="ride-item">
+          <div class="ride-item-top"><b>${escapeHtml(ride.passenger)}</b><small>${new Date(ride.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></div>
+          <div class="ride-route"><span><small>PICKUP</small><br>${escapeHtml(ride.pickup.label)}</span><span><small>DROP-OFF</small><br>${escapeHtml(ride.dropoff.label)}</span></div>
+          <div class="ride-meta"><span>${ride.distance_km} km route · ${ride.minutes} min</span><b>$${money(ride.fare_jmd)} JMD payout</b></div>
+          <div class="ride-meta"><span>Nearest available PPV</span><b>${nearest === undefined ? "No drivers nearby" : `${nearest.toFixed(1)} km to pickup`}</b></div>
+          ${ride.notes?.length ? `<div class="dispatch-notes">✦ DRIVER NOTE · ${ride.notes.map(escapeHtml).join(" · ")}</div>` : ""}
+          ${ride.pin && ride.driver ? `<div class="dispatch-pin">RIDER SAFETY PIN <b>${escapeHtml(ride.pin)}</b></div>` : ""}
+          ${actionMarkup}${counterOffers}
+        </article>`;
+      }).join("");
+      $("#drive-alert").classList.toggle("hidden", !rides.some(ride => ride.status === "searching" || ride.status === "negotiating"));
     }
     list.addEventListener("click", async event => {
       const button = event.target.closest("[data-ride][data-action]");
       if (!button) return;
       button.disabled = true;
       try {
-        await api(`/api/rides/${button.dataset.ride}/action`, { method: "POST", body: JSON.stringify({ action: button.dataset.action }) });
-        toast(button.dataset.action === "accept" ? "Ride accepted. Driver assigned." : `Trip marked ${button.dataset.action === "arrive" ? "arrived" : "complete"}.`);
-        window.dispatchEvent(new Event("yardride:activity-refresh"));
-        window.dispatchEvent(new Event("yardride:founder-refresh"));
-        await refresh();
+        const action = button.dataset.action;
+        const body = { action };
+        let url = `/api/rides/${button.dataset.ride}/action`;
+        if (action === "accept_match") {
+          url = "/api/rides/bid";
+          body.ride_id = button.dataset.ride;
+          body.driver_id = button.dataset.driver;
+        }
+        await api(url, { method: "POST", body: JSON.stringify(body) });
+        toast(action === "accept" || action === "accept_match" ? "Ride accepted. Driver assigned." : `Trip marked ${action === "arrive" ? "arrived" : (action === "start" ? "in transit" : "complete")}.`);
+        await pollSharedState();
       } catch (error) {
         button.disabled = false;
         toast(error.message);
-        await refresh();
       }
     });
-    window.addEventListener("yardride:dispatch-refresh", refresh);
-    refresh();
-    setInterval(refresh, 3000);
+    window.addEventListener("yardride:state", event => refresh(event.detail));
+    window.addEventListener("yardride:dispatch-refresh", () => refresh());
+    if (sharedState) refresh(sharedState);
   }
 
   function initAdmin() {
-    async function refresh() {
-      try {
-        const data = await api("/api/dashboard");
+    function refresh(state = sharedState) {
+      if (!state) return;
+      const data = { ...state.dashboard, rides: state.rides || [] };
         $("#gross-jmd").textContent = `$${money(data.gross_jmd)}`;
         $("#gross-usd").textContent = `US$${data.gross_usd.toFixed(2)} · completed trips`;
         $("#commission-jmd").textContent = `$${money(data.commission_jmd)}`;
@@ -941,7 +997,7 @@
         $("#fleet-count").textContent = `${data.active_drivers} / ${data.fleet_size}`;
         $("#fleet-utilization").textContent = `${Math.round(data.active_drivers / Math.max(1, data.fleet_size) * 100)}% utilization`;
         const completed = data.rides.filter(ride => ride.status === "completed").length;
-        const active = data.rides.length - completed;
+        const active = data.rides.filter(ride => !["completed", "cancelled"].includes(ride.status)).length;
         $("#completed-count").textContent = completed;
         $("#active-trips").textContent = `${active} active trips`;
         const ledger = $("#trip-ledger");
@@ -955,23 +1011,20 @@
           <td>$${money(ride.commission_jmd)} JMD</td>
           <td><span class="status-badge ${ride.status}">${statusLabels[ride.status] || ride.status}</span></td>
         </tr>`).join("");
-      } catch (error) {
-        toast(error.message);
-      }
     }
-    window.addEventListener("yardride:founder-refresh", refresh);
-    refresh();
-    setInterval(refresh, 4000);
+    window.addEventListener("yardride:state", event => refresh(event.detail));
+    window.addEventListener("yardride:founder-refresh", () => refresh());
+    if (sharedState) refresh(sharedState);
   }
 
   function initActivity() {
     const empty = $("#activity-empty");
     const receipt = $("#activity-receipt");
     const history = $("#activity-history-list");
-    async function refresh() {
-      try {
-        const { rides } = await api("/api/state");
-        const active = rides.find(ride => ride.status !== "completed");
+    function refresh(state = sharedState) {
+      if (!state) return;
+        const rides = state.rides || [];
+        const active = rides.find(ride => !["completed", "cancelled"].includes(ride.status));
         const remembered = rides.find(ride => ride.id === localStorage.getItem("yardride-current-ride"));
         const featured = active || remembered || rides[0];
         if (!featured) {
@@ -1006,31 +1059,24 @@
           <div class="history-route"><b>${escapeHtml(ride.pickup.label)} → ${escapeHtml(ride.dropoff.label)}</b><span class="status-badge ${ride.status}">${escapeHtml(statusLabels[ride.status] || ride.status)}</span></div>
           <div class="history-meta"><span>${new Date(ride.created_at).toLocaleDateString()} · ${escapeHtml(ride.tier_name)}</span><b>$${money(ride.fare_jmd)} JMD</b></div>
         </article>`).join("");
-      } catch (error) {
-        toast(error.message);
-      }
     }
-    window.addEventListener("yardride:activity-refresh", refresh);
-    refresh();
-    setInterval(refresh, 4000);
+    window.addEventListener("yardride:state", event => refresh(event.detail));
+    window.addEventListener("yardride:activity-refresh", () => refresh());
+    if (sharedState) refresh(sharedState);
   }
 
   function initFounderTracker() {
     const container = $("#founder-fleet-list");
-    async function refresh() {
-      try {
-        const { drivers } = await api("/api/drivers");
-        container.innerHTML = drivers.map(driver => `<div class="fleet-driver ${driver.available ? "" : "offline"}">
-          <span class="fleet-dot"></span><b>${escapeHtml(driver.plate)} · ${escapeHtml(driver.vehicle)}</b>
-          <small>${driver.available ? `AVAILABLE · ${driver.lat.toFixed(3)}, ${driver.lng.toFixed(3)}` : "ON ACTIVE TRIP"}</small>
-        </div>`).join("");
-      } catch (error) {
-        toast(error.message);
-      }
+    function refresh(state = sharedState) {
+      if (!state) return;
+      container.innerHTML = state.drivers.map(driver => `<div class="fleet-driver ${driver.available ? "" : "offline"}">
+        <span class="fleet-dot"></span><b>${escapeHtml(driver.plate)} · ${escapeHtml(driver.vehicle)}</b>
+        <small>${driver.available ? `AVAILABLE · ${driver.lat.toFixed(3)}, ${driver.lng.toFixed(3)}` : "ON ACTIVE TRIP"}</small>
+      </div>`).join("");
     }
-    window.addEventListener("yardride:founder-refresh", refresh);
-    refresh();
-    setInterval(refresh, 6000);
+    window.addEventListener("yardride:state", event => refresh(event.detail));
+    window.addEventListener("yardride:founder-refresh", () => refresh());
+    if (sharedState) refresh(sharedState);
   }
 
   function escapeHtml(value) {

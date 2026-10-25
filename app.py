@@ -39,6 +39,7 @@ drivers = [
     {"id": "drv-05", "name": "Tameka Reid", "vehicle": "Toyota Rush", "plate": "PPV 9183 JA", "rating": 4.9, "lat": 18.0080, "lng": -76.7620, "available": True},
 ]
 rides = {}
+dispatch_state = {"drivers": drivers, "rides": rides, "revision": 0}
 COUNTER_DRIVERS = [
     {"id": "drv-01", "name": "Dwayne Campbell", "vehicle": "Toyota Axio PPV", "plate": "PPV 4829 JA", "rating": 4.9, "eta_minutes": 4, "lat": 18.0120, "lng": -76.7980},
     {"id": "drv-02", "name": "Kemar Brown", "vehicle": "Honda Fit Shuttle", "plate": "PPV 7316 JA", "rating": 4.8, "eta_minutes": 6, "lat": 18.0040, "lng": -76.7810},
@@ -63,6 +64,42 @@ def quote_for(distance_km, tier_key, minutes=None):
     minutes = max(4, minutes) if minutes else max(4, round(distance_km / 0.42))
     fare = round(tier["base"] + distance_km * tier["per_km"] + minutes * tier["per_min"])
     return {"distance_km": round(distance_km, 1), "minutes": minutes, "fare_jmd": fare, "fare_usd": round(fare / 158, 2)}
+
+
+def _ride_state(status):
+    return {
+        "searching": "searching",
+        "negotiating": "bid_broadcasted",
+        "assigned": "driver_assigned",
+        "arrived": "arrived",
+        "in_transit": "in_transit",
+        "completed": "completed",
+        "cancelled": "cancelled",
+    }.get(status, status)
+
+
+def _set_ride_status(ride, status):
+    ride["status"] = status
+    ride["state"] = _ride_state(status)
+    ride["updated_at"] = utc_now()
+
+
+def _bump_state_revision():
+    dispatch_state["revision"] += 1
+
+
+def _dashboard_data(current_rides):
+    completed = [ride for ride in current_rides if ride["status"] == "completed"]
+    gross = sum(ride["fare_jmd"] for ride in completed)
+    commission = sum(ride["commission_jmd"] for ride in completed)
+    return {
+        "gross_jmd": gross,
+        "gross_usd": round(gross / 158, 2),
+        "commission_jmd": commission,
+        "commission_usd": round(commission / 158, 2),
+        "active_drivers": sum(1 for driver in drivers if not driver["available"]),
+        "fleet_size": len(drivers),
+    }
 
 
 def json_error(message, status):
@@ -161,6 +198,7 @@ def _create_ride(payload, mode="instant"):
     ride = {
         "id": uuid4().hex[:10],
         "status": status,
+        "state": _ride_state(status),
         "mode": mode,
         "pickup": pickup,
         "dropoff": dropoff,
@@ -185,6 +223,7 @@ def _create_ride(payload, mode="instant"):
     }
     with lock:
         rides[ride["id"]] = ride
+        _bump_state_revision()
     return ride, None
 
 
@@ -201,7 +240,7 @@ def _assign_driver(ride, driver_data, fare_jmd=None):
         (offer["eta_minutes"] for offer in ride.get("counter_offers", []) if offer["id"] == driver_id),
         5,
     )
-    ride["status"] = "assigned"
+    _set_ride_status(ride, "assigned")
     ride["assigned_at"] = utc_now()
     if fare_jmd is not None:
         ride["fare_jmd"] = fare_jmd
@@ -209,7 +248,6 @@ def _assign_driver(ride, driver_data, fare_jmd=None):
         ride["fare_per_person_jmd"] = round(fare_jmd / ride["party_size"])
         ride["fare_per_person_usd"] = round(fare_jmd / ride["party_size"] / 158, 2)
         ride["commission_jmd"] = round(fare_jmd * 0.15)
-    ride["updated_at"] = utc_now()
     return True
 
 
@@ -225,21 +263,22 @@ def _apply_ride_action(ride, payload):
     elif action == "arrive":
         if ride["status"] != "assigned":
             return "Only an assigned driver can mark arrival.", 409
-        ride["status"] = "arrived"
-        ride["updated_at"] = utc_now()
-    elif action == "complete":
+        _set_ride_status(ride, "arrived")
+    elif action == "start":
         if ride["status"] != "arrived":
-            return "A ride must be marked arrived before completion.", 409
-        ride["status"] = "completed"
-        ride["updated_at"] = utc_now()
+            return "Only a driver who has arrived can start the trip.", 409
+        _set_ride_status(ride, "in_transit")
+    elif action == "complete":
+        if ride["status"] != "in_transit":
+            return "A ride must be in transit before completion.", 409
+        _set_ride_status(ride, "completed")
         driver = next((item for item in drivers if item["id"] == ride["driver"]["id"]), None)
         if driver:
             driver["available"] = True
     elif action == "cancel":
         if ride["status"] not in ("searching", "negotiating", "assigned", "arrived", "in_transit"):
             return "This ride can no longer be cancelled.", 409
-        ride["status"] = "cancelled"
-        ride["updated_at"] = utc_now()
+        _set_ride_status(ride, "cancelled")
         driver = next((item for item in drivers if ride.get("driver") and item["id"] == ride["driver"]["id"]), None)
         if driver:
             driver["available"] = True
@@ -265,9 +304,9 @@ def _apply_ride_action(ride, payload):
         offer["fare_jmd"] = fare
         offer["fare_usd"] = round(fare / 158, 2)
         offer["countered"] = True
-        ride["updated_at"] = utc_now()
+        _set_ride_status(ride, ride["status"])
     else:
-        return "Action must be accept, arrive, complete, cancel, accept_match, or counter_bid.", 400
+        return "Action must be accept, arrive, start, complete, cancel, accept_match, or counter_bid.", 400
     return None
 
 
@@ -277,6 +316,7 @@ def shared_template_data():
 
 
 @app.get("/")
+@app.get("/rider")
 def rider_page():
     return render_template("app.html", page="app")
 
@@ -315,28 +355,21 @@ def list_drivers():
 
 @app.get("/api/state")
 def api_state():
-    elapsed = time()
     with lock:
         current_drivers = []
         for index, driver in enumerate(drivers):
             item = dict(driver)
-            phase = elapsed / 18 + index * 1.7
+            phase = time() / 18 + index * 1.7
             item["lat"] = round(driver["lat"] + sin(phase) * 0.0008, 6)
             item["lng"] = round(driver["lng"] + cos(phase) * 0.0010, 6)
             current_drivers.append(item)
         current_rides = sorted(rides.values(), key=lambda ride: ride["created_at"], reverse=True)
-        completed = [ride for ride in current_rides if ride["status"] == "completed"]
-        gross = sum(ride["fare_jmd"] for ride in completed)
-        active = sum(1 for driver in drivers if not driver["available"])
-        dashboard_data = {
-            "gross_jmd": gross,
-            "gross_usd": round(gross / 158, 2),
-            "commission_jmd": sum(ride["commission_jmd"] for ride in completed),
-            "commission_usd": round(sum(ride["commission_jmd"] for ride in completed) / 158, 2),
-            "active_drivers": active,
-            "fleet_size": len(drivers),
-        }
-        return jsonify({"drivers": current_drivers, "rides": current_rides, "dashboard": dashboard_data})
+        return jsonify({
+            "revision": dispatch_state["revision"],
+            "drivers": current_drivers,
+            "rides": current_rides,
+            "dashboard": _dashboard_data(current_rides),
+        })
 
 
 @app.get("/api/rides")
@@ -370,6 +403,7 @@ def bid_on_ride():
         error = _apply_ride_action(ride, payload)
         if error:
             return json_error(*error)
+        _bump_state_revision()
         return jsonify({"ride": ride})
 
 
@@ -393,6 +427,7 @@ def ride_action(ride_id):
         error = _apply_ride_action(ride, payload)
         if error:
             return json_error(*error)
+        _bump_state_revision()
         return jsonify({"ride": ride})
 
 
@@ -411,6 +446,7 @@ def ride_status(ride_id):
         error = _apply_ride_action(ride, payload)
         if error:
             return json_error(*error)
+        _bump_state_revision()
         return jsonify({"ride": ride})
 
 
@@ -418,17 +454,9 @@ def ride_status(ride_id):
 def dashboard():
     with lock:
         all_rides = list(rides.values())
-        completed = [ride for ride in all_rides if ride["status"] == "completed"]
-        gross = sum(ride["fare_jmd"] for ride in completed)
-        commission = sum(ride["commission_jmd"] for ride in completed)
-        active_count = sum(1 for driver in drivers if not driver["available"])
         return jsonify({
-            "gross_jmd": gross,
-            "gross_usd": round(gross / 158, 2),
-            "commission_jmd": commission,
-            "commission_usd": round(commission / 158, 2),
-            "active_drivers": active_count,
-            "fleet_size": len(drivers),
+            **_dashboard_data(all_rides),
+            "revision": dispatch_state["revision"],
             "rides": sorted(all_rides, key=lambda ride: ride["created_at"], reverse=True),
         })
 

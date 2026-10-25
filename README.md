@@ -13,6 +13,16 @@ python app.py
 
 Open <http://127.0.0.1:5000>.
 
+## Dispatch state
+
+`/api/state` is the shared snapshot for rides, the PPV fleet, and Founder
+metrics. Rider, Driver, Activity, and Founder views consume the same snapshot
+on a one-second poll; the API includes a revision number so views only rerender
+when ride or dispatch state changes. Ride state progresses through
+`searching` → `bid_broadcasted` → `driver_assigned` → `arrived` →
+`in_transit` → `completed`. The older `status` field remains available for
+existing UI/API clients.
+
 ## Deploy with GitHub and Render
 
 1. Create an empty repository on GitHub. Do not add a README, license, or

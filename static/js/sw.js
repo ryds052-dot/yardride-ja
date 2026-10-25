@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "yardride-shell-v15";
+const CACHE_NAME = "yardride-shell-v19";
 const SHELL_URLS = [
   "/",
   "/driver",

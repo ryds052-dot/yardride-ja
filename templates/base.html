@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#06070A">
+  <meta name="theme-color" content="#050608">
   <meta name="description" content="YARDRIDE — sovereign island mobility, built for Jamaica.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -25,16 +25,17 @@
     <div class="device-screen">
       <div class="status-bar" aria-label="Phone status bar">
         <span class="status-time" id="status-time">9:41</span>
-        <span class="dynamic-island" id="dynamic-island" aria-live="polite">
+        <button class="dynamic-island" id="dynamic-island" type="button" aria-label="YARDRIDE live dispatch. Open Ride." aria-live="polite">
           <i class="island-beacon"></i>
           <span class="island-idle">YARDRIDE <i>•</i> KINGSTON GPS LIVE</span>
           <span class="island-waveform" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
           <span class="island-copy"><span class="island-avatar" id="island-avatar">YR</span><span class="island-detail"><b id="island-eta">SEARCHING</b><small id="island-plate">PPV DISPATCH</small></span><span class="island-pin hidden" id="island-pin">PIN <b id="island-pin-value">----</b></span></span>
-        </span>
+        </button>
         <span class="status-icons" aria-hidden="true"><i class="signal-icon">▂▄▆</i><i class="wifi-icon">⌁</i><i class="battery-icon"><b></b></i></span>
       </div>
       <main id="app-content">{% block content %}{% endblock %}</main>
       <nav class="tab-bar glass" aria-label="App tabs">
+        <span class="tab-active-indicator" aria-hidden="true"></span>
         <button class="tab-button active" data-tab="ride" aria-current="page"><span class="tab-icon">⌖</span><span>Ride</span></button>
         <button class="tab-button" data-tab="drive"><span class="tab-icon">↗</span><span>Drive</span><i class="tab-alert hidden" id="drive-alert"></i></button>
         <button class="tab-button" data-tab="activity"><span class="tab-icon">◷</span><span>Activity</span></button>
