@@ -300,3 +300,43 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
   border-radius: 50%;
   box-shadow: 0 0 8px #F59E0B;
 }
+/* ==========================================================================
+   YARDRIDE 3D SUPERCAR MARKER RESET (KILLS OLD YELLOW BOXES)
+   ========================================================================== */
+.leaflet-marker-pane .yr-clean-marker-shell,
+.leaflet-marker-pane .yr-clean-marker-shell *,
+.leaflet-marker-pane [class*="car"],
+.leaflet-marker-pane [class*="driver"],
+.leaflet-marker-pane [class*="vehicle"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.leaflet-marker-pane .yr-car-rotator {
+  width: 44px !important;
+  height: 88px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transform-origin: 50% 50% !important;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  will-change: transform;
+}
+
+.leaflet-marker-pane .yr-3d-supercar {
+  width: 44px !important;
+  height: 88px !important;
+  overflow: visible !important;
+  display: block !important;
+  pointer-events: auto !important;
+}
+
+.leaflet-marker-pane .yr-clean-marker-shell::before,
+.leaflet-marker-pane .yr-clean-marker-shell::after,
+.leaflet-marker-pane .yr-car-rotator::before,
+.leaflet-marker-pane .yr-car-rotator::after {
+  display: none !important;
+  content: none !important;
+}
