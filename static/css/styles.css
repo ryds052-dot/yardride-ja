@@ -301,8 +301,94 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
   box-shadow: 0 0 8px #F59E0B;
 }
 /* ==========================================================================
-   YARDRIDE 3D SUPERCAR MARKER RESET (KILLS OLD YELLOW BOXES)
+  /* ==========================================================================
+   YARDRIDE ARGON LUXURY UI: RHODIUM PLATINUM, CHAMPAGNE & MIDNIGHT VECTOR MAP
    ========================================================================== */
+:root {
+  --accent: #E2E8F0 !important;
+  --accent-strong: #C5A880 !important;
+  --gold: #C5A880 !important;
+  --amber: #E2E8F0 !important;
+  --primary: #F8FAFC !important;
+}
+
+/* 1. Transform Muddy Map Tiles into Deep Obsidian-Sapphire Vector Architecture */
+.leaflet-container {
+  background: #05070B !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, sans-serif !important;
+}
+
+.leaflet-tile-pane {
+  filter: grayscale(100%) contrast(138%) brightness(78%) sepia(18%) hue-rotate(185deg) saturate(160%) !important;
+}
+
+/* Subtle 3D Horizon & Bottom Vignette Over Map */
+.leaflet-container::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 450;
+  background:
+    radial-gradient(circle at 50% 45%, transparent 45%, rgba(4, 6, 11, 0.65) 100%),
+    linear-gradient(180deg, rgba(4, 6, 11, 0.55) 0%, transparent 18%, transparent 78%, rgba(5, 7, 11, 0.95) 100%);
+}
+
+/* Hide Ugly Leaflet Bottom-Right Watermark */
+.leaflet-control-attribution {
+  display: none !important;
+}
+
+/* 2. Glowing Continuous Platinum-Ice Route Beam */
+.leaflet-overlay-pane path.yr-luxury-route-beam,
+.leaflet-overlay-pane path.leaflet-interactive {
+  stroke: #F8FAFC !important;
+  stroke-dasharray: none !important;
+  stroke-width: 4px !important;
+  stroke-linecap: round !important;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.85)) drop-shadow(0 0 16px rgba(226, 232, 240, 0.45)) !important;
+}
+
+/* 3. Pulsing 3D Telemetry Radar Beacon (Pickup & Destination Pins) */
+.yr-radar-beacon {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.yr-radar-core {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #F8FAFC;
+  border: 2.5px solid #0F172A;
+  box-shadow: 0 0 12px #38BDF8, 0 0 24px rgba(56, 189, 248, 0.9);
+  z-index: 2;
+}
+
+.yr-radar-ring {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(56, 189, 248, 0.65);
+  background: rgba(56, 189, 248, 0.12);
+  animation: yrBeaconPulse 2.4s infinite cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.yr-radar-ring.yr-ring-2 {
+  animation-delay: 1.2s;
+}
+
+@keyframes yrBeaconPulse {
+  0% { transform: scale(0.35); opacity: 1; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+/* 4. 3D Supercar Marker Reset */
 .leaflet-marker-pane .yr-clean-marker-shell,
 .leaflet-marker-pane .yr-clean-marker-shell *,
 .leaflet-marker-pane [class*="car"],
@@ -322,7 +408,6 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
   justify-content: center !important;
   transform-origin: 50% 50% !important;
   transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1) !important;
-  will-change: transform;
 }
 
 .leaflet-marker-pane .yr-3d-supercar {
@@ -330,7 +415,6 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
   height: 88px !important;
   overflow: visible !important;
   display: block !important;
-  pointer-events: auto !important;
 }
 
 .leaflet-marker-pane .yr-clean-marker-shell::before,
@@ -339,4 +423,50 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
 .leaflet-marker-pane .yr-car-rotator::after {
   display: none !important;
   content: none !important;
+}
+
+/* 5. Kill Construction-Orange UI & Replace with Rhodium Platinum & Brushed Champagne */
+[class*="tier"],
+[class*="card"],
+[class*="ride"],
+[class*="nav"],
+[class*="tab"],
+button,
+.active,
+.selected {
+  border-color: rgba(226, 232, 240, 0.14) !important;
+}
+
+/* Selected Vehicle Card -> Specular Brushed Platinum Edge */
+[class*="tier"].active,
+[class*="tier"].selected,
+[class*="card"].active,
+[class*="card"].selected,
+[aria-selected="true"] {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+  border: 1px solid rgba(226, 232, 240, 0.65) !important;
+  box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.85), 0 0 20px rgba(148, 163, 184, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Upgrade Orange Buttons ("INSTANT", Primary Actions) to Pure Liquid Platinum */
+button[class*="active"],
+button[class*="primary"],
+.seg-btn.active,
+.mode-btn.active,
+[style*="#f59e0b"],
+[style*="#F59E0B"] {
+  background: linear-gradient(135deg, #F8FAFC 0%, #CBD5E1 100%) !important;
+  color: #090D16 !important;
+  border: none !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 16px rgba(248, 250, 252, 0.25) !important;
+}
+
+/* Recolor Any Remaining Yellow/Orange Icons & Badges in Drawer to Brushed Platinum-Silver */
+[class*="tier"] svg,
+[class*="vehicle"] svg:not(.yr-3d-supercar),
+[class*="nav"] svg,
+[class*="tab"] svg,
+[class*="route"] svg {
+  filter: saturate(0.15) brightness(1.35) contrast(1.1) !important;
 }

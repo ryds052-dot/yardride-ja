@@ -1,50 +1,52 @@
 /* ==========================================================================
-   YARDRIDE 3D AUTOMOTIVE GRAPHICS ENGINE (INTERCEPTS & UPGRADES MAP CARS)
+   YARDRIDE ARGON GRAPHICS ENGINE (3D RHODIUM CARS + LASER ROUTE + RADAR PINS)
    ========================================================================== */
-(function installYardRide3DCars() {
+(function installYardRideArgonEngine() {
   const SUPERCAR_SVG_INNER = `
     <defs>
-      <filter id="yrDropShadow" x="-40%" y="-20%" width="180%" height="150%">
-        <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000000" flood-opacity="0.85"/>
+      <filter id="yrDropShadow" x="-50%" y="-30%" width="200%" height="160%">
+        <feDropShadow dx="0" dy="7" stdDeviation="5" flood-color="#000000" flood-opacity="0.9"/>
       </filter>
-      <linearGradient id="yrBeamGrad" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stop-color="#FDE68A" stop-opacity="0.55"/>
-        <stop offset="45%" stop-color="#F59E0B" stop-opacity="0.18"/>
-        <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+      <!-- Cool Ice-White Xenon Laser Headlight Beams -->
+      <linearGradient id="yrXenonBeam" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stop-color="#E0F2FE" stop-opacity="0.65"/>
+        <stop offset="40%" stop-color="#38BDF8" stop-opacity="0.22"/>
+        <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
       </linearGradient>
-      <linearGradient id="yrBodyMetal" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#64748B"/>
-        <stop offset="18%" stop-color="#E2E8F0"/>
-        <stop offset="50%" stop-color="#94A3B8"/>
-        <stop offset="82%" stop-color="#F8FAFC"/>
-        <stop offset="100%" stop-color="#475569"/>
+      <!-- Liquid Rhodium & Brushed Platinum Fuselage -->
+      <linearGradient id="yrRhodiumBody" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#1E293B"/>
+        <stop offset="18%" stop-color="#94A3B8"/>
+        <stop offset="50%" stop-color="#334155"/>
+        <stop offset="82%" stop-color="#E2E8F0"/>
+        <stop offset="100%" stop-color="#0F172A"/>
       </linearGradient>
-      <linearGradient id="yrHoodShade" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.5"/>
-        <stop offset="40%" stop-color="#1E293B" stop-opacity="0.15"/>
-        <stop offset="100%" stop-color="#0F172A" stop-opacity="0.75"/>
+      <linearGradient id="yrHoodSculpt" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#F8FAFC" stop-opacity="0.45"/>
+        <stop offset="45%" stop-color="#0F172A" stop-opacity="0.2"/>
+        <stop offset="100%" stop-color="#020617" stop-opacity="0.85"/>
       </linearGradient>
-      <linearGradient id="yrGlassGrad" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#090D16"/>
-        <stop offset="45%" stop-color="#1E293B"/>
-        <stop offset="55%" stop-color="#334155"/>
-        <stop offset="100%" stop-color="#05070B"/>
+      <linearGradient id="yrObsidianGlass" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#020617"/>
+        <stop offset="45%" stop-color="#0F172A"/>
+        <stop offset="55%" stop-color="#1E293B"/>
+        <stop offset="100%" stop-color="#020617"/>
       </linearGradient>
     </defs>
 
-    <!-- 1. Volumetric Projector Headlight Cones (Pointing North at 0deg) -->
-    <path d="M 22,42 L 8,2 L 31,2 L 29,42 Z" fill="url(#yrBeamGrad)" />
-    <path d="M 51,42 L 49,2 L 72,2 L 58,42 Z" fill="url(#yrBeamGrad)" />
+    <!-- 1. Feathered Ice-Xenon Projector Headlight Cones -->
+    <path d="M 22,42 L 6,0 L 32,0 L 29,42 Z" fill="url(#yrXenonBeam)" />
+    <path d="M 51,42 L 48,0 L 74,0 L 58,42 Z" fill="url(#yrXenonBeam)" />
 
-    <!-- 2. 3D Vehicle Chassis Group with Ground Ambient Shadow -->
+    <!-- 2. 3D Rhodium Chassis Group -->
     <g filter="url(#yrDropShadow)">
-      <!-- Aerodynamic Side Mirrors with Gold Turn Repeaters -->
-      <path d="M 18,68 L 9,71 C 7,72 7,75 10,75 L 18,74 Z" fill="#CBD5E1" stroke="#1E293B" stroke-width="0.8"/>
-      <path d="M 62,68 L 71,71 C 73,72 73,75 70,75 L 62,74 Z" fill="#CBD5E1" stroke="#1E293B" stroke-width="0.8"/>
-      <line x1="9" y1="72" x2="14" y2="71" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="71" y1="72" x2="66" y2="71" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round"/>
+      <!-- Folded Aero Mirrors with Ice-Cyan Turn Repeaters -->
+      <path d="M 18,68 L 9,71 C 7,72 7,75 10,75 L 18,74 Z" fill="#64748B" stroke="#0F172A" stroke-width="0.8"/>
+      <path d="M 62,68 L 71,71 C 73,72 73,75 70,75 L 62,74 Z" fill="#64748B" stroke="#0F172A" stroke-width="0.8"/>
+      <line x1="9" y1="72" x2="14" y2="71" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="71" y1="72" x2="66" y2="71" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round"/>
 
-      <!-- Sculpted Widebody Fuselage (Tapered Nose, Coke-Bottle Waist, Rear Haunches) -->
+      <!-- Widebody Sculpted Fuselage -->
       <path d="M 40,36
                C 52,36 60,41 62,52
                C 63,61 60,68 60,79
@@ -55,9 +57,9 @@
                C 17,106 20,95 20,79
                C 20,68 17,61 18,52
                C 20,41 28,36 40,36 Z"
-            fill="url(#yrBodyMetal)" stroke="#1E293B" stroke-width="1.2"/>
+            fill="url(#yrRhodiumBody)" stroke="#475569" stroke-width="1.1"/>
 
-      <!-- Longitudinal Depth Shading Overlay -->
+      <!-- Longitudinal 3D Contour Shading -->
       <path d="M 40,36
                C 52,36 60,41 62,52
                C 63,61 60,68 60,79
@@ -68,16 +70,16 @@
                C 17,106 20,95 20,79
                C 20,68 17,61 18,52
                C 20,41 28,36 40,36 Z"
-            fill="url(#yrHoodShade)"/>
+            fill="url(#yrHoodSculpt)"/>
 
-      <!-- Sovereign Gold Front Splitter & Side Sill Trim -->
-      <path d="M 24,39 Q 40,35 56,39" fill="none" stroke="#F59E0B" stroke-width="2.2" stroke-linecap="round"/>
+      <!-- Brushed Champagne-Platinum Front Aero Splitter -->
+      <path d="M 24,39 Q 40,35 56,39" fill="none" stroke="#E2E8F0" stroke-width="2" stroke-linecap="round"/>
 
-      <!-- Sculpted Hood Power-Dome Creases -->
-      <path d="M 28,42 L 25,64" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.65" stroke-linecap="round"/>
-      <path d="M 52,42 L 55,64" stroke="#FFFFFF" stroke-width="1.2" stroke-opacity="0.65" stroke-linecap="round"/>
+      <!-- Hood Crease Specular Lines -->
+      <path d="M 28,42 L 25,64" stroke="#E2E8F0" stroke-width="1.1" stroke-opacity="0.55" stroke-linecap="round"/>
+      <path d="M 52,42 L 55,64" stroke="#E2E8F0" stroke-width="1.1" stroke-opacity="0.55" stroke-linecap="round"/>
 
-      <!-- Panoramic Obsidian Glasshouse (Windshield + Sunroof + Rear Deck Glass) -->
+      <!-- Panoramic Obsidian Glasshouse -->
       <path d="M 40,61
                C 49,61 55,65 56,72
                L 55,123
@@ -85,31 +87,40 @@
                C 32,134 26,130 25,123
                L 24,72
                C 25,65 31,61 40,61 Z"
-            fill="url(#yrGlassGrad)" stroke="#0F172A" stroke-width="1.5"/>
+            fill="url(#yrObsidianGlass)" stroke="#0F172A" stroke-width="1.5"/>
 
-      <!-- Swept Windshield Reflection & Roof Pillars -->
+      <!-- Sapphire Sky Reflection on Windshield -->
       <path d="M 26,71 C 32,68 48,68 54,71 L 51,82 C 45,79 35,79 29,82 Z"
-            fill="#38BDF8" fill-opacity="0.16"/>
-      <path d="M 28,84 L 46,66 L 51,68 L 33,86 Z" fill="#FFFFFF" fill-opacity="0.18"/>
+            fill="#7DD3FC" fill-opacity="0.22"/>
+      <path d="M 28,84 L 46,66 L 51,68 L 33,86 Z" fill="#FFFFFF" fill-opacity="0.16"/>
 
-      <!-- Metallic Roof Bow Separators -->
-      <path d="M 25,83 Q 40,80 55,83" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-opacity="0.7"/>
-      <path d="M 26,113 Q 40,115 54,113" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-opacity="0.7"/>
+      <!-- Roof Bows -->
+      <path d="M 25,83 Q 40,80 55,83" fill="none" stroke="#64748B" stroke-width="1.5" stroke-opacity="0.75"/>
+      <path d="M 26,113 Q 40,115 54,113" fill="none" stroke="#64748B" stroke-width="1.5" stroke-opacity="0.75"/>
 
-      <!-- Matrix LED Headlight Blades -->
-      <path d="M 19,49 Q 22,42 29,40" fill="none" stroke="#FEF08A" stroke-width="3" stroke-linecap="round"/>
-      <path d="M 61,49 Q 58,42 51,40" fill="none" stroke="#FEF08A" stroke-width="3" stroke-linecap="round"/>
+      <!-- Ice-White Matrix LED Headlight Blades -->
+      <path d="M 19,49 Q 22,42 29,40" fill="none" stroke="#F0F9FF" stroke-width="3.2" stroke-linecap="round"/>
+      <path d="M 61,49 Q 58,42 51,40" fill="none" stroke="#F0F9FF" stroke-width="3.2" stroke-linecap="round"/>
 
-      <!-- Continuous Crimson LED Rear Lightbar (Porsche / Maybach Style) -->
+      <!-- Continuous Crimson Rear Lightbar -->
       <path d="M 22,143 Q 40,147 58,143" fill="none" stroke="#EF4444" stroke-width="3" stroke-linecap="round"/>
-      <path d="M 26,143 Q 40,146 54,143" fill="none" stroke="#FCA5A5" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M 26,143 Q 40,146 54,143" fill="none" stroke="#FECACA" stroke-width="1.2" stroke-linecap="round"/>
     </g>
   `;
 
-  function hookLeafletDivIcon() {
-    if (!window.L || !window.L.divIcon || window.L.__yrPatched) return false;
-    const origDivIcon = window.L.divIcon.bind(window.L);
+  const BEACON_PIN_SVG = `
+    <div class="yr-radar-beacon">
+      <span class="yr-radar-ring yr-ring-1"></span>
+      <span class="yr-radar-ring yr-ring-2"></span>
+      <span class="yr-radar-core"></span>
+    </div>
+  `;
 
+  function patchLeafletEngine() {
+    if (!window.L || window.L.__yrArgonPatched) return false;
+
+    // 1. Intercept DivIcons (3D Cars + Luxury Radar Pickup/Dropoff Pins)
+    const origDivIcon = window.L.divIcon.bind(window.L);
     window.L.divIcon = function (options = {}) {
       const sig = ((options.className || '') + ' ' + (options.html || '')).toLowerCase();
       const isVehicle =
@@ -120,7 +131,6 @@
         const temp = document.createElement('div');
         temp.innerHTML = options.html.trim();
         const rotTarget = temp.querySelector('[style*="rotate"], [style*="heading"]') || temp.firstElementChild;
-
         const svgMarkup = `<svg class="yr-3d-supercar" viewBox="0 0 80 160" width="44" height="88" xmlns="http://www.w3.org/2000/svg">${SUPERCAR_SVG_INNER}</svg>`;
 
         if (rotTarget) {
@@ -136,29 +146,45 @@
         } else {
           options.html = `<div class="yr-car-rotator">${svgMarkup}</div>`;
         }
-
         options.className = (options.className || '') + ' yr-clean-marker-shell';
         options.iconSize = [44, 88];
         options.iconAnchor = [22, 44];
+      } else {
+        // Upgrade Pickup / Destination Pins into Pulsing Luxury Telemetry Beacons
+        options.html = BEACON_PIN_SVG;
+        options.className = 'yr-clean-marker-shell yr-beacon-wrapper';
+        options.iconSize = [36, 36];
+        options.iconAnchor = [18, 18];
       }
       return origDivIcon(options);
     };
 
-    window.L.DivIcon.prototype.initialize = new Proxy(window.L.DivIcon.prototype.initialize, {
-      apply(target, thisArg, args) {
-        return Reflect.apply(target, thisArg, args);
-      }
-    });
+    // 2. Intercept Route Polylines (Replace Dashed Yellow Line with Glowing Laser Beam)
+    if (window.L.polyline) {
+      const origPolyline = window.L.polyline.bind(window.L);
+      window.L.polyline = function (latlngs, options = {}) {
+        const luxuryOptions = Object.assign({}, options, {
+          color: '#E2E8F0',
+          weight: 4,
+          opacity: 0.95,
+          dashArray: null,
+          lineCap: 'round',
+          lineJoin: 'round',
+          className: ((options && options.className) || '') + ' yr-luxury-route-beam'
+        });
+        return origPolyline(latlngs, luxuryOptions);
+      };
+    }
 
-    window.L.__yrPatched = true;
+    window.L.__yrArgonPatched = true;
     return true;
   }
 
-  if (!hookLeafletDivIcon()) {
+  if (!patchLeafletEngine()) {
     const timer = setInterval(() => {
-      if (hookLeafletDivIcon()) clearInterval(timer);
+      if (patchLeafletEngine()) clearInterval(timer);
     }, 10);
-    window.addEventListener('DOMContentLoaded', hookLeafletDivIcon);
+    window.addEventListener('DOMContentLoaded', patchLeafletEngine);
   }
 })();
 (() => {
