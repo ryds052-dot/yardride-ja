@@ -45,3 +45,5 @@ self.addEventListener("fetch", event => {
     return response;
   }).catch(async () => caches.match(event.request)));
 });
+
+// cache-bust-v4

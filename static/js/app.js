@@ -1,114 +1,161 @@
 /* ==========================================================================
-   YARDRIDE ARGON GRAPHICS ENGINE (3D RHODIUM CARS + LASER ROUTE + RADAR PINS)
+   YARDRIDE V4 HYPER-LUXURY ENGINE (CACHE KILLER + DARK MATTER MAP + 3D UI)
    ========================================================================== */
-(function installYardRideArgonEngine() {
-  const SUPERCAR_SVG_INNER = `
+(function installYardRideHyperLuxuryEngine() {
+  // 1. Nuke Stale Service Workers & Cache so Render Updates Load Instantly
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      for (const reg of regs) reg.unregister();
+    });
+  }
+  if ('caches' in window) {
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  }
+
+  // 2. Precision Proportion 3D Map Car (Sleek Obsidian & Liquid Rhodium)
+  const MAP_CAR_SVG = `
     <defs>
-      <filter id="yrDropShadow" x="-50%" y="-30%" width="200%" height="160%">
-        <feDropShadow dx="0" dy="7" stdDeviation="5" flood-color="#000000" flood-opacity="0.9"/>
+      <filter id="yrCarShadow" x="-50%" y="-40%" width="200%" height="180%">
+        <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000000" flood-opacity="0.92"/>
       </filter>
-      <!-- Cool Ice-White Xenon Laser Headlight Beams -->
-      <linearGradient id="yrXenonBeam" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stop-color="#E0F2FE" stop-opacity="0.65"/>
-        <stop offset="40%" stop-color="#38BDF8" stop-opacity="0.22"/>
-        <stop offset="100%" stop-color="#38BDF8" stop-opacity="0"/>
-      </linearGradient>
-      <!-- Liquid Rhodium & Brushed Platinum Fuselage -->
-      <linearGradient id="yrRhodiumBody" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#1E293B"/>
-        <stop offset="18%" stop-color="#94A3B8"/>
-        <stop offset="50%" stop-color="#334155"/>
-        <stop offset="82%" stop-color="#E2E8F0"/>
-        <stop offset="100%" stop-color="#0F172A"/>
-      </linearGradient>
-      <linearGradient id="yrHoodSculpt" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient id="yrBeam" x1="0" y1="1" x2="0" y2="0">
         <stop offset="0%" stop-color="#F8FAFC" stop-opacity="0.45"/>
-        <stop offset="45%" stop-color="#0F172A" stop-opacity="0.2"/>
-        <stop offset="100%" stop-color="#020617" stop-opacity="0.85"/>
+        <stop offset="45%" stop-color="#94A3B8" stop-opacity="0.12"/>
+        <stop offset="100%" stop-color="#94A3B8" stop-opacity="0"/>
       </linearGradient>
-      <linearGradient id="yrObsidianGlass" x1="0" y1="0" x2="1" y2="1">
+      <linearGradient id="yrChassis" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#0F172A"/>
+        <stop offset="22%" stop-color="#475569"/>
+        <stop offset="50%" stop-color="#1E293B"/>
+        <stop offset="78%" stop-color="#64748B"/>
+        <stop offset="100%" stop-color="#090D16"/>
+      </linearGradient>
+      <linearGradient id="yrCabinGlass" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="#020617"/>
-        <stop offset="45%" stop-color="#0F172A"/>
-        <stop offset="55%" stop-color="#1E293B"/>
+        <stop offset="50%" stop-color="#0F172A"/>
         <stop offset="100%" stop-color="#020617"/>
       </linearGradient>
     </defs>
 
-    <!-- 1. Feathered Ice-Xenon Projector Headlight Cones -->
-    <path d="M 22,42 L 6,0 L 32,0 L 29,42 Z" fill="url(#yrXenonBeam)" />
-    <path d="M 51,42 L 48,0 L 74,0 L 58,42 Z" fill="url(#yrXenonBeam)" />
+    <!-- Soft Realistic Xenon Road Illumination -->
+    <path d="M 24,38 L 12,4 L 31,4 L 30,38 Z" fill="url(#yrBeam)"/>
+    <path d="M 50,38 L 49,4 L 68,4 L 56,38 Z" fill="url(#yrBeam)"/>
 
-    <!-- 2. 3D Rhodium Chassis Group -->
-    <g filter="url(#yrDropShadow)">
-      <!-- Folded Aero Mirrors with Ice-Cyan Turn Repeaters -->
-      <path d="M 18,68 L 9,71 C 7,72 7,75 10,75 L 18,74 Z" fill="#64748B" stroke="#0F172A" stroke-width="0.8"/>
-      <path d="M 62,68 L 71,71 C 73,72 73,75 70,75 L 62,74 Z" fill="#64748B" stroke="#0F172A" stroke-width="0.8"/>
-      <line x1="9" y1="72" x2="14" y2="71" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="71" y1="72" x2="66" y2="71" stroke="#38BDF8" stroke-width="1.5" stroke-linecap="round"/>
+    <g filter="url(#yrCarShadow)">
+      <!-- Subtle Wheel Arches / Tires -->
+      <rect x="17" y="47" width="4" height="14" rx="2" fill="#020617"/>
+      <rect x="59" y="47" width="4" height="14" rx="2" fill="#020617"/>
+      <rect x="17" y="108" width="4" height="15" rx="2" fill="#020617"/>
+      <rect x="59" y="108" width="4" height="15" rx="2" fill="#020617"/>
 
-      <!-- Widebody Sculpted Fuselage -->
-      <path d="M 40,36
-               C 52,36 60,41 62,52
-               C 63,61 60,68 60,79
-               C 60,95 63,106 63,121
-               C 63,135 57,145 48,147
-               C 43,148 37,148 32,147
-               C 23,145 17,135 17,121
-               C 17,106 20,95 20,79
-               C 20,68 17,61 18,52
-               C 20,41 28,36 40,36 Z"
-            fill="url(#yrRhodiumBody)" stroke="#475569" stroke-width="1.1"/>
+      <!-- Main Sculpted GT Fuselage -->
+      <path d="M 40,34
+               C 51,34 58,39 60,49
+               L 60,122
+               C 60,133 53,139 40,139
+               C 27,139 20,133 20,122
+               L 20,49
+               C 22,39 29,34 40,34 Z"
+            fill="url(#yrChassis)" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.55"/>
 
-      <!-- Longitudinal 3D Contour Shading -->
-      <path d="M 40,36
-               C 52,36 60,41 62,52
-               C 63,61 60,68 60,79
-               C 60,95 63,106 63,121
-               C 63,135 57,145 48,147
-               C 43,148 37,148 32,147
-               C 23,145 17,135 17,121
-               C 17,106 20,95 20,79
-               C 20,68 17,61 18,52
-               C 20,41 28,36 40,36 Z"
-            fill="url(#yrHoodSculpt)"/>
+      <!-- Side Mirrors -->
+      <path d="M 20,62 L 13,65 C 12,66 12,68 14,68 L 20,67 Z" fill="#334155"/>
+      <path d="M 60,62 L 67,65 C 68,66 68,68 66,68 L 60,67 Z" fill="#334155"/>
 
-      <!-- Brushed Champagne-Platinum Front Aero Splitter -->
-      <path d="M 24,39 Q 40,35 56,39" fill="none" stroke="#E2E8F0" stroke-width="2" stroke-linecap="round"/>
+      <!-- Hood Crease Lines -->
+      <path d="M 29,39 L 27,58" stroke="#CBD5E1" stroke-width="0.9" stroke-opacity="0.45" stroke-linecap="round"/>
+      <path d="M 51,39 L 53,58" stroke="#CBD5E1" stroke-width="0.9" stroke-opacity="0.45" stroke-linecap="round"/>
 
-      <!-- Hood Crease Specular Lines -->
-      <path d="M 28,42 L 25,64" stroke="#E2E8F0" stroke-width="1.1" stroke-opacity="0.55" stroke-linecap="round"/>
-      <path d="M 52,42 L 55,64" stroke="#E2E8F0" stroke-width="1.1" stroke-opacity="0.55" stroke-linecap="round"/>
+      <!-- Tinted Panoramic Glasshouse -->
+      <path d="M 40,56
+               C 48,56 54,60 55,67
+               L 54,116
+               C 53,123 48,127 40,127
+               C 32,127 27,123 26,116
+               L 25,67
+               C 26,60 32,56 40,56 Z"
+            fill="url(#yrCabinGlass)" stroke="#334155" stroke-width="1"/>
 
-      <!-- Panoramic Obsidian Glasshouse -->
-      <path d="M 40,61
-               C 49,61 55,65 56,72
-               L 55,123
-               C 54,130 48,134 40,134
-               C 32,134 26,130 25,123
-               L 24,72
-               C 25,65 31,61 40,61 Z"
-            fill="url(#yrObsidianGlass)" stroke="#0F172A" stroke-width="1.5"/>
+      <!-- Crisp Windshield Specular Highlight -->
+      <path d="M 27,66 C 33,63 47,63 53,66 L 51,75 C 45,73 35,73 29,75 Z" fill="#E2E8F0" fill-opacity="0.18"/>
+      <path d="M 26,94 L 54,94" stroke="#475569" stroke-width="1.2" stroke-opacity="0.6"/>
 
-      <!-- Sapphire Sky Reflection on Windshield -->
-      <path d="M 26,71 C 32,68 48,68 54,71 L 51,82 C 45,79 35,79 29,82 Z"
-            fill="#7DD3FC" fill-opacity="0.22"/>
-      <path d="M 28,84 L 46,66 L 51,68 L 33,86 Z" fill="#FFFFFF" fill-opacity="0.16"/>
+      <!-- DRL Headlight Blades -->
+      <path d="M 22,45 Q 25,38 31,37" fill="none" stroke="#F8FAFC" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M 58,45 Q 55,38 49,37" fill="none" stroke="#F8FAFC" stroke-width="2.4" stroke-linecap="round"/>
 
-      <!-- Roof Bows -->
-      <path d="M 25,83 Q 40,80 55,83" fill="none" stroke="#64748B" stroke-width="1.5" stroke-opacity="0.75"/>
-      <path d="M 26,113 Q 40,115 54,113" fill="none" stroke="#64748B" stroke-width="1.5" stroke-opacity="0.75"/>
-
-      <!-- Ice-White Matrix LED Headlight Blades -->
-      <path d="M 19,49 Q 22,42 29,40" fill="none" stroke="#F0F9FF" stroke-width="3.2" stroke-linecap="round"/>
-      <path d="M 61,49 Q 58,42 51,40" fill="none" stroke="#F0F9FF" stroke-width="3.2" stroke-linecap="round"/>
-
-      <!-- Continuous Crimson Rear Lightbar -->
-      <path d="M 22,143 Q 40,147 58,143" fill="none" stroke="#EF4444" stroke-width="3" stroke-linecap="round"/>
-      <path d="M 26,143 Q 40,146 54,143" fill="none" stroke="#FECACA" stroke-width="1.2" stroke-linecap="round"/>
+      <!-- Rear Tail Light Strip -->
+      <path d="M 24,136 Q 40,139 56,136" fill="none" stroke="#EF4444" stroke-width="2.4" stroke-linecap="round"/>
     </g>
   `;
 
-  const BEACON_PIN_SVG = `
+  // 3. Side-Profile Luxury Vehicle Silhouettes for the Bottom Sheet Cards
+  const TIER_SIDE_SVGS = [
+    // Tier 1: Express Charter (Sleek Sport Sedan)
+    `<svg viewBox="0 0 120 48" width="68" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="t1Grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#F8FAFC"/>
+          <stop offset="50%" stop-color="#94A3B8"/>
+          <stop offset="100%" stop-color="#334155"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="60" cy="40" rx="48" ry="4" fill="#000000" fill-opacity="0.6"/>
+      <path d="M12,32 C12,26 18,23 28,22 L44,13 C52,10 68,10 80,14 L94,21 C104,22 110,26 110,32 C110,35 107,36 102,36 L18,36 C14,36 12,35 12,32 Z" fill="url(#t1Grad)"/>
+      <path d="M45,15 L31,22 L62,22 L62,13 C55,13 49,14 45,15 Z" fill="#090D16"/>
+      <path d="M66,13 L66,22 L90,22 L79,15 C75,14 70,13 66,13 Z" fill="#090D16"/>
+      <circle cx="30" cy="35" r="8" fill="#090D16" stroke="#CBD5E1" stroke-width="2"/>
+      <circle cx="30" cy="35" r="3" fill="#94A3B8"/>
+      <circle cx="90" cy="35" r="8" fill="#090D16" stroke="#CBD5E1" stroke-width="2"/>
+      <circle cx="90" cy="35" r="3" fill="#94A3B8"/>
+      <path d="M105,26 L110,28" stroke="#F8FAFC" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M13,26 L16,26" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>`,
+    // Tier 2: Executive PPV Gold (Maybach / S-Class Executive Profile)
+    `<svg viewBox="0 0 120 48" width="68" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="t2Grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#FFFFFF"/>
+          <stop offset="45%" stop-color="#CBD5E1"/>
+          <stop offset="100%" stop-color="#475569"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="60" cy="40" rx="50" ry="4" fill="#000000" fill-opacity="0.65"/>
+      <path d="M8,32 C8,25 15,22 26,21 L42,11 C52,8 72,8 84,12 L98,20 C107,21 113,25 113,32 C113,35 110,36 105,36 L14,36 C10,36 8,35 8,32 Z" fill="url(#t2Grad)"/>
+      <path d="M43,13 L29,21 L60,21 L60,11 C53,11 47,12 43,13 Z" fill="#05070B"/>
+      <path d="M64,11 L64,21 L94,21 L82,13 C77,11 70,11 64,11 Z" fill="#05070B"/>
+      <line x1="26" y1="27" x2="100" y2="27" stroke="#F8FAFC" stroke-width="1" stroke-opacity="0.7"/>
+      <circle cx="28" cy="35" r="8.5" fill="#05070B" stroke="#E2E8F0" stroke-width="2.2"/>
+      <circle cx="28" cy="35" r="3.5" fill="#CBD5E1"/>
+      <circle cx="92" cy="35" r="8.5" fill="#05070B" stroke="#E2E8F0" stroke-width="2.2"/>
+      <circle cx="92" cy="35" r="3.5" fill="#CBD5E1"/>
+      <path d="M107,25 L112,27" stroke="#F8FAFC" stroke-width="3" stroke-linecap="round"/>
+      <path d="M9,25 L13,25" stroke="#EF4444" stroke-width="3" stroke-linecap="round"/>
+    </svg>`,
+    // Tier 3: 7-Seater Island Cruiser (Full-Size Luxury SUV Profile)
+    `<svg viewBox="0 0 120 48" width="68" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="t3Grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#E2E8F0"/>
+          <stop offset="50%" stop-color="#94A3B8"/>
+          <stop offset="100%" stop-color="#1E293B"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="60" cy="41" rx="50" ry="4" fill="#000000" fill-opacity="0.65"/>
+      <path d="M10,33 L12,14 C13,10 18,8 26,8 L78,8 C85,8 90,11 95,19 L108,21 C112,22 114,26 114,33 C114,35 111,36 106,36 L14,36 C11,36 10,35 10,33 Z" fill="url(#t3Grad)"/>
+      <path d="M16,11 L42,11 L42,20 L15,20 Z" fill="#05070B"/>
+      <path d="M46,11 L68,11 L68,20 L46,20 Z" fill="#05070B"/>
+      <path d="M72,11 L82,11 L91,20 L72,20 Z" fill="#05070B"/>
+      <circle cx="29" cy="35" r="9" fill="#05070B" stroke="#CBD5E1" stroke-width="2.2"/>
+      <circle cx="29" cy="35" r="3.5" fill="#94A3B8"/>
+      <circle cx="92" cy="35" r="9" fill="#05070B" stroke="#CBD5E1" stroke-width="2.2"/>
+      <circle cx="92" cy="35" r="3.5" fill="#94A3B8"/>
+      <path d="M109,24 L113,26" stroke="#F8FAFC" stroke-width="3" stroke-linecap="round"/>
+      <path d="M10,20 L12,26" stroke="#EF4444" stroke-width="3" stroke-linecap="round"/>
+    </svg>`
+  ];
+
+  const BEACON_PIN_HTML = `
     <div class="yr-radar-beacon">
       <span class="yr-radar-ring yr-ring-1"></span>
       <span class="yr-radar-ring yr-ring-2"></span>
@@ -116,10 +163,22 @@
     </div>
   `;
 
-  function patchLeafletEngine() {
-    if (!window.L || window.L.__yrArgonPatched) return false;
+  function patchLeafletAndUI() {
+    if (!window.L || window.L.__yrV4Patched) return false;
 
-    // 1. Intercept DivIcons (3D Cars + Luxury Radar Pickup/Dropoff Pins)
+    // A. Force Ultra-Clean CartoDB Dark Matter Vector Tiles (No Key Required)
+    if (window.L.tileLayer) {
+      const origTileLayer = window.L.tileLayer.bind(window.L);
+      window.L.tileLayer = function (url, options = {}) {
+        const darkMatterUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        return origTileLayer(darkMatterUrl, Object.assign({}, options, {
+          subdomains: 'abcd',
+          maxZoom: 20
+        }));
+      };
+    }
+
+    // B. Intercept DivIcons for Sleek 36x72 Luxury Cars & Radar Beacons
     const origDivIcon = window.L.divIcon.bind(window.L);
     window.L.divIcon = function (options = {}) {
       const sig = ((options.className || '') + ' ' + (options.html || '')).toLowerCase();
@@ -131,7 +190,7 @@
         const temp = document.createElement('div');
         temp.innerHTML = options.html.trim();
         const rotTarget = temp.querySelector('[style*="rotate"], [style*="heading"]') || temp.firstElementChild;
-        const svgMarkup = `<svg class="yr-3d-supercar" viewBox="0 0 80 160" width="44" height="88" xmlns="http://www.w3.org/2000/svg">${SUPERCAR_SVG_INNER}</svg>`;
+        const svgMarkup = `<svg class="yr-3d-supercar" viewBox="0 0 80 160" width="36" height="72" xmlns="http://www.w3.org/2000/svg">${MAP_CAR_SVG}</svg>`;
 
         if (rotTarget) {
           if (rotTarget.tagName.toLowerCase() === 'svg') {
@@ -147,45 +206,67 @@
           options.html = `<div class="yr-car-rotator">${svgMarkup}</div>`;
         }
         options.className = (options.className || '') + ' yr-clean-marker-shell';
-        options.iconSize = [44, 88];
-        options.iconAnchor = [22, 44];
+        options.iconSize = [36, 72];
+        options.iconAnchor = [18, 36];
       } else {
-        // Upgrade Pickup / Destination Pins into Pulsing Luxury Telemetry Beacons
-        options.html = BEACON_PIN_SVG;
+        options.html = BEACON_PIN_HTML;
         options.className = 'yr-clean-marker-shell yr-beacon-wrapper';
-        options.iconSize = [36, 36];
-        options.iconAnchor = [18, 18];
+        options.iconSize = [32, 32];
+        options.iconAnchor = [16, 16];
       }
       return origDivIcon(options);
     };
 
-    // 2. Intercept Route Polylines (Replace Dashed Yellow Line with Glowing Laser Beam)
+    // C. Intercept Route Polylines (Crisp Continuous Platinum Laser Line)
     if (window.L.polyline) {
       const origPolyline = window.L.polyline.bind(window.L);
       window.L.polyline = function (latlngs, options = {}) {
-        const luxuryOptions = Object.assign({}, options, {
-          color: '#E2E8F0',
-          weight: 4,
+        return origPolyline(latlngs, Object.assign({}, options, {
+          color: '#F8FAFC',
+          weight: 3.5,
           opacity: 0.95,
           dashArray: null,
           lineCap: 'round',
           lineJoin: 'round',
           className: ((options && options.className) || '') + ' yr-luxury-route-beam'
-        });
-        return origPolyline(latlngs, luxuryOptions);
+        }));
       };
     }
 
-    window.L.__yrArgonPatched = true;
+    window.L.__yrV4Patched = true;
     return true;
   }
 
-  if (!patchLeafletEngine()) {
-    const timer = setInterval(() => {
-      if (patchLeafletEngine()) clearInterval(timer);
-    }, 10);
-    window.addEventListener('DOMContentLoaded', patchLeafletEngine);
+  // D. Upgrade the Bottom Drawer Tier Icons into 3D Side-Profile Silhouettes
+  function upgradeDrawerVehicleIcons() {
+    const cards = document.querySelectorAll('[class*="tier"], [class*="vehicle-card"], [data-tier]');
+    cards.forEach((card, idx) => {
+      if (card.dataset.yrUpgraded) return;
+      const oldIcon = card.querySelector('svg, [class*="icon"], [class*="badge"]');
+      if (oldIcon && oldIcon.tagName.toLowerCase() === 'svg') {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'yr-tier-silhouette';
+        wrapper.innerHTML = TIER_SIDE_SVGS[idx % TIER_SIDE_SVGS.length];
+        oldIcon.replaceWith(wrapper);
+        card.dataset.yrUpgraded = 'true';
+      } else if (oldIcon) {
+        oldIcon.innerHTML = TIER_SIDE_SVGS[idx % TIER_SIDE_SVGS.length];
+        oldIcon.classList.add('yr-tier-silhouette');
+        card.dataset.yrUpgraded = 'true';
+      }
+    });
   }
+
+  if (!patchLeafletAndUI()) {
+    const timer = setInterval(() => {
+      if (patchLeafletAndUI()) clearInterval(timer);
+    }, 10);
+  }
+  window.addEventListener('DOMContentLoaded', () => {
+    patchLeafletAndUI();
+    upgradeDrawerVehicleIcons();
+    new MutationObserver(upgradeDrawerVehicleIcons).observe(document.body, { childList: true, subtree: true });
+  });
 })();
 (() => {
   "use strict";

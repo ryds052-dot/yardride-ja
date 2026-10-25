@@ -302,27 +302,29 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
 }
 /* ==========================================================================
   /* ==========================================================================
-   YARDRIDE ARGON LUXURY UI: RHODIUM PLATINUM, CHAMPAGNE & MIDNIGHT VECTOR MAP
+  ortant;
+/* ==========================================================================
+   YARDRIDE V4 HYPER-LUXURY SYSTEM: PURE OBSIDIAN, PLATINUM & DARK MATTER
    ========================================================================== */
 :root {
-  --accent: #E2E8F0 !important;
-  --accent-strong: #C5A880 !important;
-  --gold: #C5A880 !important;
-  --amber: #E2E8F0 !important;
-  --primary: #F8FAFC !important;
+  --accent: #F8FAFC !important;
+  --accent-strong: #CBD5E1 !important;
+  --gold: #E2E8F0 !important;
+  --amber: #F8FAFC !important;
+  --primary: #FFFFFF !important;
 }
 
-/* 1. Transform Muddy Map Tiles into Deep Obsidian-Sapphire Vector Architecture */
+/* 1. Crisp CartoDB Dark Matter Map Canvas */
 .leaflet-container {
-  background: #05070B !important;
+  background: #06080D !important;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, sans-serif !important;
 }
 
 .leaflet-tile-pane {
-  filter: grayscale(100%) contrast(138%) brightness(78%) sepia(18%) hue-rotate(185deg) saturate(160%) !important;
+  filter: contrast(112%) brightness(95%) saturate(85%) !important;
 }
 
-/* Subtle 3D Horizon & Bottom Vignette Over Map */
+/* Atmospheric Top & Bottom Edge Vignette */
 .leaflet-container::after {
   content: "";
   position: absolute;
@@ -330,52 +332,51 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
   pointer-events: none;
   z-index: 450;
   background:
-    radial-gradient(circle at 50% 45%, transparent 45%, rgba(4, 6, 11, 0.65) 100%),
-    linear-gradient(180deg, rgba(4, 6, 11, 0.55) 0%, transparent 18%, transparent 78%, rgba(5, 7, 11, 0.95) 100%);
+    radial-gradient(circle at 50% 45%, transparent 52%, rgba(5, 7, 11, 0.55) 100%),
+    linear-gradient(180deg, rgba(5, 7, 11, 0.6) 0%, transparent 16%, transparent 80%, rgba(6, 8, 13, 0.96) 100%);
 }
 
-/* Hide Ugly Leaflet Bottom-Right Watermark */
 .leaflet-control-attribution {
   display: none !important;
 }
 
-/* 2. Glowing Continuous Platinum-Ice Route Beam */
+/* 2. Glowing Continuous Platinum Route Line */
 .leaflet-overlay-pane path.yr-luxury-route-beam,
 .leaflet-overlay-pane path.leaflet-interactive {
   stroke: #F8FAFC !important;
   stroke-dasharray: none !important;
-  stroke-width: 4px !important;
+  stroke-width: 3.5px !important;
   stroke-linecap: round !important;
-  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.85)) drop-shadow(0 0 16px rgba(226, 232, 240, 0.45)) !important;
+  filter: drop-shadow(0 0 8px rgba(248, 250, 252, 0.55)) !important;
 }
 
-/* 3. Pulsing 3D Telemetry Radar Beacon (Pickup & Destination Pins) */
+/* 3. Sleek Telemetry Radar Beacon */
 .yr-radar-beacon {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .yr-radar-core {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #F8FAFC;
-  border: 2.5px solid #0F172A;
-  box-shadow: 0 0 12px #38BDF8, 0 0 24px rgba(56, 189, 248, 0.9);
+  background: #FFFFFF;
+  border: 2.5px solid #090D16;
+  box-shadow: 0 0 12px #FFFFFF;
   z-index: 2;
 }
 
 .yr-radar-ring {
   position: absolute;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 1.5px solid rgba(56, 189, 248, 0.65);
-  background: rgba(56, 189, 248, 0.12);
+  border: 1.2px solid rgba(248, 250, 252, 0.65);
+  background: rgba(248, 250, 252, 0.08);
   animation: yrBeaconPulse 2.4s infinite cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -385,10 +386,10 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
 
 @keyframes yrBeaconPulse {
   0% { transform: scale(0.35); opacity: 1; }
-  100% { transform: scale(1.55); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
 }
 
-/* 4. 3D Supercar Marker Reset */
+/* 4. Precision 36x72 3D Map Car Container */
 .leaflet-marker-pane .yr-clean-marker-shell,
 .leaflet-marker-pane .yr-clean-marker-shell *,
 .leaflet-marker-pane [class*="car"],
@@ -401,8 +402,8 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
 }
 
 .leaflet-marker-pane .yr-car-rotator {
-  width: 44px !important;
-  height: 88px !important;
+  width: 36px !important;
+  height: 72px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -411,8 +412,8 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
 }
 
 .leaflet-marker-pane .yr-3d-supercar {
-  width: 44px !important;
-  height: 88px !important;
+  width: 36px !important;
+  height: 72px !important;
   overflow: visible !important;
   display: block !important;
 }
@@ -425,50 +426,50 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
   content: none !important;
 }
 
-/* 5. Kill Construction-Orange UI & Replace with Rhodium Platinum & Brushed Champagne */
+/* 5. Bottom Sheet Luxury Vehicle Tier Cards & 3D Side Silhouettes */
+.yr-tier-silhouette {
+  width: 68px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.07) 0%, transparent 75%) !important;
+  border-radius: 10px !important;
+  border: none !important;
+  flex-shrink: 0 !important;
+}
+
 [class*="tier"],
 [class*="card"],
 [class*="ride"],
 [class*="nav"],
 [class*="tab"],
-button,
-.active,
-.selected {
-  border-color: rgba(226, 232, 240, 0.14) !important;
+button {
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-/* Selected Vehicle Card -> Specular Brushed Platinum Edge */
+/* Active Selected Vehicle Card: Frosted Titanium Glass */
 [class*="tier"].active,
 [class*="tier"].selected,
 [class*="card"].active,
 [class*="card"].selected,
 [aria-selected="true"] {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
-  border: 1px solid rgba(226, 232, 240, 0.65) !important;
-  box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.85), 0 0 20px rgba(148, 163, 184, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
+  border: 1px solid rgba(248, 250, 252, 0.55) !important;
+  box-shadow: 0 10px 26px -6px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
 }
 
-/* Upgrade Orange Buttons ("INSTANT", Primary Actions) to Pure Liquid Platinum */
+/* Primary Buttons ("INSTANT", Confirm, Edit) -> Pure Platinum Pill */
 button[class*="active"],
 button[class*="primary"],
 .seg-btn.active,
-.mode-btn.active,
-[style*="#f59e0b"],
-[style*="#F59E0B"] {
-  background: linear-gradient(135deg, #F8FAFC 0%, #CBD5E1 100%) !important;
-  color: #090D16 !important;
+.mode-btn.active {
+  background: linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 100%) !important;
+  color: #06080D !important;
   border: none !important;
   font-weight: 700 !important;
-  box-shadow: 0 4px 16px rgba(248, 250, 252, 0.25) !important;
-}
-
-/* Recolor Any Remaining Yellow/Orange Icons & Badges in Drawer to Brushed Platinum-Silver */
-[class*="tier"] svg,
-[class*="vehicle"] svg:not(.yr-3d-supercar),
-[class*="nav"] svg,
-[class*="tab"] svg,
-[class*="route"] svg {
-  filter: saturate(0.15) brightness(1.35) contrast(1.1) !important;
+  letter-spacing: 0.02em !important;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2) !important;
 }
 /* ==========================================================================
    NATIVE iOS APP STORE & CAPACITOR SHELL OVERRIDES
@@ -484,7 +485,6 @@ html, body {
 @media (max-width: 520px), (display-mode: standalone) {
   body {
     padding: 0 !important;
-    margin: 0 !important;
     background: #05070B !important;
     display: block !important;
   }
