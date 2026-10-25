@@ -304,53 +304,40 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
   /* ==========================================================================
   ortant;
 /* ==========================================================================
-   YARDRIDE V4 HYPER-LUXURY SYSTEM: PURE OBSIDIAN, PLATINUM & DARK MATTER
+ /* ==========================================================================
+   YARDRIDE V5 STABLE SYSTEM: KEYLESS DARK MAP & PLATINUM UI
    ========================================================================== */
 :root {
   --accent: #F8FAFC !important;
   --accent-strong: #CBD5E1 !important;
   --gold: #E2E8F0 !important;
-  --amber: #F8FAFC !important;
   --primary: #FFFFFF !important;
 }
 
-/* 1. Crisp CartoDB Dark Matter Map Canvas */
+/* Keyless Dark-Mode Map Filter (Inverts standard OSM tiles into obsidian slate) */
 .leaflet-container {
-  background: #06080D !important;
+  background: #05070B !important;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, sans-serif !important;
 }
 
 .leaflet-tile-pane {
-  filter: contrast(112%) brightness(95%) saturate(85%) !important;
-}
-
-/* Atmospheric Top & Bottom Edge Vignette */
-.leaflet-container::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 450;
-  background:
-    radial-gradient(circle at 50% 45%, transparent 52%, rgba(5, 7, 11, 0.55) 100%),
-    linear-gradient(180deg, rgba(5, 7, 11, 0.6) 0%, transparent 16%, transparent 80%, rgba(6, 8, 13, 0.96) 100%);
+  filter: invert(100%) hue-rotate(180deg) brightness(88%) contrast(125%) saturate(30%) !important;
 }
 
 .leaflet-control-attribution {
   display: none !important;
 }
 
-/* 2. Glowing Continuous Platinum Route Line */
+/* Continuous Platinum Route Line */
 .leaflet-overlay-pane path.yr-luxury-route-beam,
 .leaflet-overlay-pane path.leaflet-interactive {
   stroke: #F8FAFC !important;
-  stroke-dasharray: none !important;
   stroke-width: 3.5px !important;
   stroke-linecap: round !important;
-  filter: drop-shadow(0 0 8px rgba(248, 250, 252, 0.55)) !important;
+  filter: drop-shadow(0 0 6px rgba(248, 250, 252, 0.6)) !important;
 }
 
-/* 3. Sleek Telemetry Radar Beacon */
+/* Telemetry Radar Beacon */
 .yr-radar-beacon {
   position: relative;
   width: 32px;
@@ -365,8 +352,8 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
   height: 10px;
   border-radius: 50%;
   background: #FFFFFF;
-  border: 2.5px solid #090D16;
-  box-shadow: 0 0 12px #FFFFFF;
+  border: 2px solid #090D16;
+  box-shadow: 0 0 10px #FFFFFF;
   z-index: 2;
 }
 
@@ -389,12 +376,11 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
   100% { transform: scale(1.6); opacity: 0; }
 }
 
-/* 4. Precision 36x72 3D Map Car Container */
+/* 3D Supercar Marker Shell */
 .leaflet-marker-pane .yr-clean-marker-shell,
 .leaflet-marker-pane .yr-clean-marker-shell *,
 .leaflet-marker-pane [class*="car"],
-.leaflet-marker-pane [class*="driver"],
-.leaflet-marker-pane [class*="vehicle"] {
+.leaflet-marker-pane [class*="driver"] {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
@@ -418,58 +404,34 @@ button:active,.landmark-chip:active,.note-chip:active,.icon-button:active,.tab-b
   display: block !important;
 }
 
-.leaflet-marker-pane .yr-clean-marker-shell::before,
-.leaflet-marker-pane .yr-clean-marker-shell::after,
-.leaflet-marker-pane .yr-car-rotator::before,
-.leaflet-marker-pane .yr-car-rotator::after {
-  display: none !important;
-  content: none !important;
-}
-
-/* 5. Bottom Sheet Luxury Vehicle Tier Cards & 3D Side Silhouettes */
+/* Tier Silhouettes & Cards */
 .yr-tier-silhouette {
   width: 68px !important;
   height: 32px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.07) 0%, transparent 75%) !important;
-  border-radius: 10px !important;
-  border: none !important;
-  flex-shrink: 0 !important;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 75%) !important;
+  border-radius: 8px !important;
 }
 
-[class*="tier"],
-[class*="card"],
-[class*="ride"],
-[class*="nav"],
-[class*="tab"],
-button {
-  border-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-/* Active Selected Vehicle Card: Frosted Titanium Glass */
 [class*="tier"].active,
 [class*="tier"].selected,
 [class*="card"].active,
-[class*="card"].selected,
-[aria-selected="true"] {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
-  border: 1px solid rgba(248, 250, 252, 0.55) !important;
-  box-shadow: 0 10px 26px -6px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+[class*="card"].selected {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
+  border: 1px solid rgba(248, 250, 252, 0.6) !important;
+  box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
 }
 
-/* Primary Buttons ("INSTANT", Confirm, Edit) -> Pure Platinum Pill */
 button[class*="active"],
 button[class*="primary"],
-.seg-btn.active,
-.mode-btn.active {
+.seg-btn.active {
   background: linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 100%) !important;
-  color: #06080D !important;
+  color: #05070B !important;
   border: none !important;
   font-weight: 700 !important;
-  letter-spacing: 0.02em !important;
-  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.25) !important;
 }
 /* ==========================================================================
    NATIVE iOS APP STORE & CAPACITOR SHELL OVERRIDES
