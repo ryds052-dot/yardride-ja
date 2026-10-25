@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "YARDRIDE // Sovereign Island Mobility",
+  "short_name": "YARDRIDE",
+  "description": "Jamaican ride-hailing for riders and verified PPV drivers.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06070A",
+  "theme_color": "#06070A",
+  "icons": [
+    {
+      "src": "/static/img/yardride-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/yardride-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

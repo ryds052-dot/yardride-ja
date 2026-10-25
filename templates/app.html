@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}YARDRIDE | Island Mobility{% endblock %}
+{% block content %}
+<div class="map-stage" id="ride-map-stage">
+  <div id="map" class="map-canvas" aria-label="Interactive Kingston map"></div>
+  <div class="map-vignette" aria-hidden="true"></div>
+  <div class="route-map-control">
+    <button type="button" class="route-pill glass" id="route-pill" aria-expanded="false" aria-controls="route-picker">
+      <span class="route-pill-icon" aria-hidden="true">⌖</span><span class="route-pill-copy"><b id="route-pill-summary">Sovereign Centre → Devon House</b><small id="route-pill-distance">KINGSTON · LIVE ROUTE</small></span><span class="route-pill-edit">EDIT</span>
+    </button>
+    <div class="route-picker glass" id="route-picker" aria-hidden="true">
+      <div class="route-fields">
+        <div class="route-markers"><span class="pickup-dot"></span><i></i><span class="drop-dot"></span></div>
+        <label><span>FROM</span><input id="pickup-label" value="Sovereign Centre North" autocomplete="off"><button class="pin-select" data-select="pickup" type="button">MAP</button></label>
+        <label><span>TO</span><input id="dropoff-label" value="Devon House" autocomplete="off"><button class="pin-select" data-select="dropoff" type="button">MAP</button></label>
+      </div>
+      <div class="landmark-row" aria-label="Quick destinations">
+        {% for landmark in landmarks %}<button class="landmark-chip" data-landmark="{{ landmark.name }}">{{ landmark.name }}</button>{% endfor %}
+      </div>
+      <div class="route-picker-footer"><span>Tap MAP, then choose a point on the map</span><button type="button" id="locate-btn" aria-label="Center map on Kingston">CENTER</button></div>
+    </div>
+  </div>
+  <div class="map-selection-banner hidden" id="map-selection-banner">Tap the map to set <b id="map-selection-target">pickup</b><button id="cancel-map-select">CANCEL</button></div>
+</div>
+<div class="counter-offers" id="counter-offers" aria-live="polite" aria-hidden="true"></div>
+<section class="tab-view ride-view active" data-view="ride" aria-label="Ride">
+  {% include "rider.html" %}
+</section>
+<section class="tab-view drive-view" data-view="drive" aria-label="Drive">
+  {% include "driver.html" %}
+</section>
+<section class="tab-view activity-view" data-view="activity" aria-label="Activity">
+  {% include "activity.html" %}
+</section>
+<section class="tab-view founder-view" data-view="founder" aria-label="Founder">
+  {% include "admin.html" %}
+</section>
+{% endblock %}

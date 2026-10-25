@@ -1,0 +1,1039 @@
+(() => {
+  "use strict";
+
+  const config = window.YARDRIDE_CONFIG || { landmarks: [], tiers: {}, payments: [] };
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const money = value => new Intl.NumberFormat("en-JM", { maximumFractionDigits: 0 }).format(value);
+  const localRidesStorageKey = "yardride-local-rides";
+  let toastTimer;
+  let localApiMode = !navigator.onLine;
+  const compactPlaceName = name => name.startsWith("Sovereign Centre") ? "Sovereign Centre" : name;
+  const localDrivers = [
+    { id: "drv-01", name: "Dwayne Campbell", vehicle: "Toyota Axio", plate: "PPV 4829 JA", rating: 4.9, lat: 18.012, lng: -76.798, available: true },
+    { id: "drv-02", name: "Kemar Brown", vehicle: "Honda Fit Shuttle", plate: "PPV 7316 JA", rating: 4.8, lat: 18.004, lng: -76.781, available: true },
+    { id: "drv-03", name: "Shanice Williams", vehicle: "2018 Subaru Crossover 7", plate: "PPV 2054 JA", rating: 5, lat: 18.019, lng: -76.807, available: true },
+    { id: "drv-04", name: "Andre Morgan", vehicle: "Nissan Note", plate: "PPV 6642 JA", rating: 4.9, lat: 17.998, lng: -76.801, available: true },
+    { id: "drv-05", name: "Tameka Reid", vehicle: "Toyota Rush", plate: "PPV 9183 JA", rating: 4.9, lat: 18.008, lng: -76.762, available: true },
+  ];
+  const localCounterDrivers = [
+    { ...localDrivers[0], vehicle: "Toyota Axio PPV", eta_minutes: 4 },
+    { ...localDrivers[1], vehicle: "Honda Fit Shuttle", eta_minutes: 6 },
+    { ...localDrivers[2], vehicle: "2018 Subaru Crossover 7", eta_minutes: 3 },
+  ];
+
+  function toast(message) {
+    const element = $("#toast");
+    if (!element) return;
+    element.textContent = message;
+    element.classList.add("visible");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => element.classList.remove("visible"), 3200);
+  }
+
+  async function api(url, options = {}) {
+    let bodyRideId;
+    if (options.body) {
+      try {
+        bodyRideId = JSON.parse(options.body).ride_id;
+      } catch {
+        bodyRideId = null;
+      }
+    }
+    if (localRideForUrl(url) || (bodyRideId && readLocalState().rides.some(ride => ride.id === bodyRideId))) {
+      return localApi(url, options);
+    }
+    if (localApiMode) return localApi(url, options);
+    let response;
+    try {
+      response = await fetch(url, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options,
+      });
+    } catch {
+      localApiMode = true;
+      return localApi(url, options);
+    }
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      localApiMode = true;
+      return localApi(url, options);
+    }
+    if (!data || typeof data !== "object") {
+      localApiMode = true;
+      return localApi(url, options);
+    }
+    if (!response.ok) {
+      if (response.status >= 500) {
+        localApiMode = true;
+        return localApi(url, options);
+      }
+      if (response.status === 404 && options.method !== "POST" && localRideForUrl(url)) return localApi(url, options);
+      throw new Error(data.error || `Request failed (${response.status})`);
+    }
+    cacheApiResponse(url, data);
+    return data;
+  }
+  window.addEventListener("offline", () => { localApiMode = true; });
+
+  function readLocalState() {
+    let saved;
+    try {
+      saved = JSON.parse(localStorage.getItem("yardride-api-fallback") || "null");
+    } catch (error) {
+      console.warn("Could not read the saved local ride state:", error.message);
+    }
+    if (!saved || !Array.isArray(saved.rides) || !Array.isArray(saved.drivers)) {
+      saved = { rides: [], drivers: localDrivers.map(driver => ({ ...driver })), dashboard: null };
+    }
+    try {
+      const localRides = JSON.parse(localStorage.getItem(localRidesStorageKey) || "[]");
+      if (Array.isArray(localRides)) {
+        const ridesById = new Map(saved.rides.map(ride => [ride.id, ride]));
+        localRides.forEach(ride => {
+          if (ride && typeof ride.id === "string" && ride.id.startsWith("local-")) ridesById.set(ride.id, ride);
+        });
+        saved.rides = [...ridesById.values()];
+      }
+    } catch (error) {
+      console.warn("Could not read locally created rides:", error.message);
+    }
+    return saved;
+  }
+
+  function saveLocalState(state) {
+    const localRides = state.rides.filter(ride => ride.id.startsWith("local-"));
+    try {
+      localStorage.setItem(localRidesStorageKey, JSON.stringify(localRides));
+    } catch (error) {
+      console.warn("Could not save locally created rides:", error.message);
+    }
+    try {
+      localStorage.setItem("yardride-api-fallback", JSON.stringify(state));
+    } catch (error) {
+      console.warn("Could not save the local ride state:", error.message);
+    }
+  }
+
+  function cacheApiResponse(url, data) {
+    const state = readLocalState();
+    if (Array.isArray(data.rides)) {
+      const serverIds = new Set(data.rides.map(ride => ride.id));
+      const pendingLocalRides = state.rides.filter(ride => ride.id.startsWith("local-") && !serverIds.has(ride.id));
+      state.rides = [...data.rides, ...pendingLocalRides];
+    }
+    if (Array.isArray(data.drivers)) state.drivers = data.drivers;
+    if (data.dashboard) state.dashboard = data.dashboard;
+    if (data.ride) {
+      const index = state.rides.findIndex(ride => ride.id === data.ride.id);
+      if (index < 0) state.rides.unshift(data.ride);
+      else state.rides[index] = data.ride;
+      if (data.ride.driver) {
+        const driver = state.drivers.find(item => item.id === data.ride.driver.id);
+        if (driver) driver.available = data.ride.status === "completed";
+      }
+    }
+    saveLocalState(state);
+  }
+
+  function localRideForUrl(url) {
+    const match = new URL(url, location.origin).pathname.match(/^\/api\/rides\/([^/]+)(?:\/(?:status|action))?$/);
+    return match ? readLocalState().rides.some(ride => ride.id === match[1]) : false;
+  }
+
+  function localApi(url, options) {
+    const path = new URL(url, location.origin).pathname;
+    const method = (options.method || "GET").toUpperCase();
+    const state = readLocalState();
+    const body = options.body ? JSON.parse(options.body) : {};
+    const now = new Date().toISOString();
+    const findRide = id => state.rides.find(ride => ride.id === id);
+    const dashboard = () => {
+      const completed = state.rides.filter(ride => ride.status === "completed");
+      const gross = completed.reduce((sum, ride) => sum + ride.fare_jmd, 0);
+      const commission = completed.reduce((sum, ride) => sum + ride.commission_jmd, 0);
+      return {
+        gross_jmd: gross, gross_usd: Number((gross / 158).toFixed(2)),
+        commission_jmd: commission, commission_usd: Number((commission / 158).toFixed(2)),
+        active_drivers: state.drivers.filter(driver => !driver.available).length,
+        fleet_size: state.drivers.length,
+      };
+    };
+    const assign = (ride, driver, fare) => {
+      if (!driver) throw new Error("No PPV drivers are available in local mode.");
+      const fleetDriver = state.drivers.find(item => item.id === driver.id) || driver;
+      fleetDriver.available = false;
+      ride.driver = { ...fleetDriver, verified: true, ice_cold_ac: true, eta_minutes: driver.eta_minutes || 5 };
+      ride.status = "assigned";
+      ride.assigned_at = now;
+      if (fare !== undefined) {
+        ride.fare_jmd = fare;
+        ride.fare_usd = Number((fare / 158).toFixed(2));
+        ride.fare_per_person_jmd = Math.round(fare / ride.party_size);
+        ride.fare_per_person_usd = Number((fare / ride.party_size / 158).toFixed(2));
+        ride.commission_jmd = Math.round(fare * 0.15);
+      }
+      ride.updated_at = now;
+      return ride;
+    };
+    let result;
+
+    if (path === "/api/state" && method === "GET") {
+      result = { drivers: state.drivers, rides: state.rides, dashboard: dashboard() };
+    } else if (path === "/api/drivers" && method === "GET") {
+      result = { drivers: state.drivers };
+    } else if (path === "/api/rides" && method === "GET") {
+      result = { rides: state.rides };
+    } else if (path === "/api/dashboard" && method === "GET") {
+      result = { ...dashboard(), rides: state.rides };
+    } else if (path === "/api/rides/request" && method === "POST") {
+      const tier = config.tiers[body.tier] || config.tiers.express;
+      const fare = Number(body.fare_jmd) || 0;
+      const ride = {
+        id: `local-${Date.now().toString(36)}`,
+        status: body.mode === "negotiate" ? "negotiating" : "searching",
+        mode: body.mode || "instant", pickup: body.pickup, dropoff: body.dropoff,
+        tier: body.tier || "express", tier_name: tier.name, payment: body.payment || "Cash (JMD)",
+        passenger: body.passenger || "Island Rider", notes: body.notes || [], party_size: Number(body.party_size) || 1,
+        pin: String(Math.floor(Math.random() * 10000)).padStart(4, "0"),
+        distance_km: Number(body.distance_km) || 0, minutes: Number(body.minutes) || 0,
+        fare_jmd: fare, fare_usd: Number((fare / 158).toFixed(2)),
+        fare_per_person_jmd: Math.round(fare / (Number(body.party_size) || 1)),
+        fare_per_person_usd: Number((fare / (Number(body.party_size) || 1) / 158).toFixed(2)),
+        commission_jmd: Math.round(fare * 0.15), driver: null,
+        created_at: now, updated_at: now,
+        counter_offers: body.mode === "negotiate" ? localCounterDrivers.map((driver, index) => {
+          const offerFare = fare + Math.max(100, Math.round(fare * (index + 1) * 0.04 / 100) * 100);
+          return { ...driver, fare_jmd: offerFare, fare_usd: Number((offerFare / 158).toFixed(2)), ice_cold_ac: true, countered: false };
+        }) : [],
+      };
+      state.rides.unshift(ride);
+      result = { ride };
+    } else if (path === "/api/rides/bid" && method === "POST") {
+      const ride = findRide(body.ride_id);
+      if (!ride) throw new Error("That ride is not available in local mode.");
+      if (body.action === "accept_match") {
+        const offer = ride.counter_offers.find(item => item.id === body.driver_id);
+        if (!offer) throw new Error("The driver offer is no longer available.");
+        result = { ride: assign(ride, offer, offer.fare_jmd) };
+      } else if (body.action === "counter_bid") {
+        const offer = ride.counter_offers.find(item => item.id === body.driver_id);
+        if (!offer) throw new Error("The driver offer is no longer available.");
+        offer.fare_jmd = Number(body.fare_jmd);
+        offer.fare_usd = Number((offer.fare_jmd / 158).toFixed(2));
+        offer.countered = true;
+        ride.updated_at = now;
+        result = { ride };
+      } else {
+        throw new Error("That bid action is not available in local mode.");
+      }
+    } else if (/^\/api\/rides\/[^/]+\/action$/.test(path) && method === "POST") {
+      const rideId = path.split("/")[3];
+      const ride = findRide(rideId);
+      if (!ride) throw new Error("That ride is not available in local mode.");
+      if (body.action === "cancel" && ["searching", "negotiating", "assigned", "arrived", "in_transit"].includes(ride.status)) {
+        ride.status = "cancelled";
+        ride.updated_at = now;
+        const driver = state.drivers.find(item => item.id === ride.driver?.id);
+        if (driver) driver.available = true;
+        result = { ride };
+      } else if (body.action === "accept") result = { ride: assign(ride, state.drivers.find(driver => driver.available), ride.mode === "negotiate" ? ride.fare_jmd : undefined) };
+      else if (body.action === "arrive" && ride.status === "assigned") { ride.status = "arrived"; ride.updated_at = now; result = { ride }; }
+      else if (body.action === "complete" && ride.status === "arrived") {
+        ride.status = "completed"; ride.updated_at = now;
+        const driver = state.drivers.find(item => item.id === ride.driver?.id);
+        if (driver) driver.available = true;
+        result = { ride };
+      } else throw new Error("That ride action is not available in local mode.");
+    } else if (/^\/api\/rides\/[^/]+\/status$/.test(path) && method === "GET") {
+      const ride = findRide(path.split("/")[3]);
+      if (!ride) throw new Error("That ride is not available in local mode.");
+      result = { ride };
+    } else {
+      throw new Error("YARDRIDE is offline. Reconnect to submit this action.");
+    }
+    saveLocalState(state);
+    return result;
+  }
+
+  function haversine(a, b) {
+    const rad = deg => deg * Math.PI / 180;
+    const dLat = rad(b.lat - a.lat);
+    const dLng = rad(b.lng - a.lng);
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 6371.0088 * 2 * Math.asin(Math.sqrt(x));
+  }
+
+  const statusLabels = {
+    searching: "Searching for PPV Driver",
+    negotiating: "Driver offers incoming",
+    assigned: "Driver Assigned & En Route",
+    arrived: "Arrived at Pickup",
+    in_transit: "In Transit",
+    cancelled: "Ride Cancelled",
+    completed: "Completed",
+  };
+
+  initTabs();
+  initRider();
+  initDriver();
+  initAdmin();
+  initActivity();
+  initFounderTracker();
+  updateStatusClock();
+  setInterval(updateStatusClock, 60000);
+
+  function updateStatusClock() {
+    const clock = $("#status-time");
+    if (clock) clock.textContent = new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" }).format(new Date());
+  }
+
+  function initTabs() {
+    const tabs = $$(".tab-button");
+    const views = $$(".tab-view");
+    const chooseTab = (requested, updateLocation) => {
+      const tab = views.some(view => view.dataset.view === requested) ? requested : "ride";
+      tabs.forEach(button => {
+        const active = button.dataset.tab === tab;
+        button.classList.toggle("active", active);
+        if (active) button.setAttribute("aria-current", "page");
+        else button.removeAttribute("aria-current");
+      });
+      views.forEach(view => {
+        const active = view.dataset.view === tab;
+        view.classList.toggle("active", active);
+        view.setAttribute("aria-hidden", String(!active));
+      });
+      if (updateLocation) history.pushState({ tab }, "", `#${tab}`);
+      if (tab === "activity") window.dispatchEvent(new Event("yardride:activity-refresh"));
+      if (tab === "founder") window.dispatchEvent(new Event("yardride:founder-refresh"));
+      if (tab === "drive") window.dispatchEvent(new Event("yardride:dispatch-refresh"));
+      if (tab === "ride" && window.yardrideMap) {
+        setTimeout(() => window.yardrideMap.invalidateSize(), 80);
+      }
+    };
+    let initialTab = location.hash.slice(1);
+    if (!initialTab && location.pathname === "/driver") initialTab = "drive";
+    if (!initialTab && location.pathname === "/admin") initialTab = "founder";
+    chooseTab(initialTab || "ride", false);
+    tabs.forEach(button => button.addEventListener("click", () => chooseTab(button.dataset.tab, true)));
+    $$("[data-jump]").forEach(button => button.addEventListener("click", () => chooseTab(button.dataset.jump, true)));
+    window.addEventListener("popstate", () => chooseTab(location.hash.slice(1), false));
+  }
+
+  function initRider() {
+    const map = L.map("map", { zoomControl: false, attributionControl: true }).setView([18.0179, -76.8099], 13);
+    window.yardrideMap = map;
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      subdomains: "abc",
+      maxZoom: 20,
+    }).addTo(map);
+
+    const pickup = { ...config.landmarks.find(item => item.name.startsWith("Sovereign Centre")) };
+    const dropoff = { ...config.landmarks.find(item => item.name === "Devon House") };
+    let selecting = null;
+    let selectedTier = "express";
+    let bookingMode = "instant";
+    let currency = "JMD";
+    let routeDistance = haversine(pickup, dropoff) * 1.28;
+    let routeMinutes = Math.max(4, Math.round(routeDistance / 0.42));
+    let routeRequest = 0;
+    let currentRideId = localStorage.getItem("yardride-current-ride");
+    let currentRideStatus = null;
+    let ridePollTimer;
+    let routeLayer;
+    let routeGlowLayer;
+    let pickupMarker;
+    let dropoffMarker;
+    let requestedFare = 0;
+    let offersSignature = "";
+    let partySize = 1;
+    const selectedNotes = new Set();
+    const driverMarkers = new Map();
+
+    const icon = (className, html) => L.divIcon({ className: "", html: `<span class="${className}">${html}</span>`, iconSize: [31, 31], iconAnchor: [15, 15] });
+    const carIcon = bearing => L.divIcon({
+      className: "",
+      html: `<span class="vehicle-vector" style="--bearing:${bearing}deg"><svg viewBox="0 0 40 48" aria-hidden="true"><defs><linearGradient id="car-body" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fff0bc"/><stop offset=".32" stop-color="#fbbf24"/><stop offset="1" stop-color="#b45309"/></linearGradient><linearGradient id="car-glass" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#a5f3fc"/><stop offset=".55" stop-color="#334155"/><stop offset="1" stop-color="#0f172a"/></linearGradient></defs><path d="M12 5 20 1l8 4 7 11v23l-5 7H10l-5-7V16z" fill="url(#car-body)" stroke="#fff0c2" stroke-width="1.8"/><path d="m13 10 7-4 7 4 3 9H10z" fill="url(#car-glass)" stroke="#dbeafe" stroke-opacity=".5"/><path d="M10 25h20v10H10z" fill="#20242b" stroke="#fff2c6" stroke-opacity=".35"/><path d="M8 38h5m14 0h5" stroke="#fff0b3" stroke-width="3" stroke-linecap="round"/><path d="M7 13 3 16m30-3 4 3" stroke="#fff8d6" stroke-width="2" stroke-linecap="round" class="vehicle-headlights"/></svg></span>`,
+      iconSize: [35, 42],
+      iconAnchor: [17, 21],
+    });
+    pickupMarker = L.marker([pickup.lat, pickup.lng], { icon: icon("pickup-pin", "●"), draggable: true }).addTo(map);
+    dropoffMarker = L.marker([dropoff.lat, dropoff.lng], { icon: icon("dropoff-pin", "◆"), draggable: true }).addTo(map);
+    pickupMarker.on("dragend", event => setPoint("pickup", event.target.getLatLng()));
+    dropoffMarker.on("dragend", event => setPoint("dropoff", event.target.getLatLng()));
+
+    function setPoint(type, coordinates, label) {
+      const point = type === "pickup" ? pickup : dropoff;
+      point.lat = coordinates.lat;
+      point.lng = coordinates.lng;
+      if (label) point.name = label;
+      else point.name = `${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`;
+      const input = $(`#${type}-label`);
+      input.value = point.name;
+      (type === "pickup" ? pickupMarker : dropoffMarker).setLatLng([point.lat, point.lng]);
+      updateRoute();
+    }
+
+    function estimateQuote(distance, tierKey) {
+      const tier = config.tiers[tierKey];
+      return Math.round(tier.base + distance * tier.per_km + routeMinutes * tier.per_min);
+    }
+
+    function updateQuote() {
+      $("#route-distance").textContent = `${routeDistance.toFixed(1)} km`;
+      $("#route-time").textContent = `${routeMinutes} min`;
+      $("#route-summary").textContent = `${pickup.name} → ${dropoff.name}`;
+      $("#route-pill-summary").textContent = `${compactPlaceName(pickup.name)} → ${compactPlaceName(dropoff.name)}`;
+      $("#route-pill-distance").textContent = `${routeDistance.toFixed(1)} KM · ${routeMinutes} MIN · KINGSTON`;
+      Object.keys(config.tiers).forEach(key => {
+        const fare = estimateQuote(routeDistance, key);
+        $(`[data-tier-price="${key}"]`).textContent = `$${money(fare)} JMD`;
+        $(`[data-tier-usd="${key}"]`).textContent = `US$${(fare / 158).toFixed(2)}`;
+      });
+      const fare = estimateQuote(routeDistance, selectedTier);
+      if (!requestedFare || bookingMode === "instant") requestedFare = fare;
+      const shownFare = bookingMode === "negotiate" ? requestedFare : fare;
+      $("#selected-fare").textContent = `$${money(shownFare)} JMD`;
+      $("#book-label").textContent = bookingMode === "instant" ? "REQUEST RIDE" : "BROADCAST OFFER";
+      $(".ride-sheet").dataset.mode = bookingMode;
+      $("#booking-title").textContent = bookingMode === "instant" ? "Choose a vehicle" : "Make an offer";
+      $("#selected-tier-label").textContent = config.tiers[selectedTier]?.name || "Selected vehicle";
+      updateMatchGauge();
+      updateSplitSummary(shownFare);
+    }
+
+    async function updateRoute() {
+      const requestId = ++routeRequest;
+      const from = [pickup.lat, pickup.lng];
+      const to = [dropoff.lat, dropoff.lng];
+      const directFallback = () => {
+        if (requestId !== routeRequest) return;
+        routeDistance = Math.max(0.2, haversine(pickup, dropoff) * 1.28);
+        routeMinutes = Math.max(4, Math.round(routeDistance / 0.42));
+        if (routeLayer) map.removeLayer(routeLayer);
+        drawRoute([from, to]);
+        updateQuote();
+      };
+      try {
+        const coords = `${pickup.lng},${pickup.lat};${dropoff.lng},${dropoff.lat}`;
+        const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`, { signal: AbortSignal.timeout(5000) });
+        if (!response.ok) throw new Error("Routing service unavailable");
+        const data = await response.json();
+        if (!data.routes?.length) throw new Error("No route found");
+        const route = data.routes[0];
+        if (requestId !== routeRequest) return;
+        routeDistance = route.distance / 1000;
+        routeMinutes = Math.max(4, Math.round(route.duration / 60));
+        if (routeLayer) map.removeLayer(routeLayer);
+        drawRoute(route.geometry.coordinates.map(point => [point[1], point[0]]));
+        updateQuote();
+      } catch {
+        directFallback();
+      }
+    }
+
+    function drawRoute(points) {
+      if (routeLayer) map.removeLayer(routeLayer);
+      if (routeGlowLayer) map.removeLayer(routeGlowLayer);
+      routeGlowLayer = L.polyline(points, { color: "#F59E0B", weight: 10, opacity: 0.25, className: "route-aura", lineCap: "round", lineJoin: "round" }).addTo(map);
+      routeLayer = L.polyline(points, { color: "#FBBF24", weight: 4, opacity: 1, className: "route-glow", dashArray: "10 7", lineCap: "round", lineJoin: "round" }).addTo(map);
+    }
+
+    function bearingBetween(from, to) {
+      const radians = value => value * Math.PI / 180;
+      const degrees = value => (value * 180 / Math.PI + 360) % 360;
+      const y = Math.sin(radians(to.lng - from.lng)) * Math.cos(radians(to.lat));
+      const x = Math.cos(radians(from.lat)) * Math.sin(radians(to.lat)) -
+        Math.sin(radians(from.lat)) * Math.cos(radians(to.lat)) * Math.cos(radians(to.lng - from.lng));
+      return degrees(Math.atan2(y, x));
+    }
+
+    function updateIsland(ride) {
+      const island = $("#dynamic-island");
+      const eta = $("#island-eta");
+      const plate = $("#island-plate");
+      const avatar = $("#island-avatar");
+      const pin = $("#island-pin");
+      const pinValue = $("#island-pin-value");
+      const idleCopy = $(".island-idle");
+      const liveCopy = $(".island-copy");
+      if (!island || !eta || !plate) return;
+      const active = ride && ["searching", "negotiating", "assigned", "arrived", "in_transit"].includes(ride.status);
+      island.classList.toggle("expanded", Boolean(active));
+      island.classList.toggle("island-negotiating", ride?.status === "negotiating");
+      if (idleCopy) idleCopy.setAttribute("aria-hidden", String(Boolean(active)));
+      if (liveCopy) liveCopy.setAttribute("aria-hidden", String(!active));
+      if (!active) {
+        eta.textContent = "SEARCHING";
+        plate.textContent = "PPV DISPATCH";
+        if (avatar) avatar.textContent = "YR";
+        if (pin) pin.classList.add("hidden");
+        return;
+      }
+      if (avatar) avatar.textContent = ride.driver?.name?.split(/\s+/).map(part => part[0]).slice(0, 2).join("").toUpperCase() || "YR";
+      if (pin) pin.classList.toggle("hidden", !ride.pin || !ride.driver);
+      if (pinValue) pinValue.textContent = ride.pin || "----";
+      let remainingMinutes = ride.driver?.eta_minutes || 5;
+      if (ride.assigned_at) {
+        const elapsed = Math.max(0, (Date.now() - Date.parse(ride.assigned_at)) / 60000);
+        remainingMinutes = Math.max(0, remainingMinutes - elapsed);
+      }
+      if (ride.driver) {
+        eta.textContent = `${Math.ceil(remainingMinutes)} min ETA`;
+      } else {
+        eta.textContent = ride.status === "negotiating" ? "BROADCASTING OFFER" : "SEARCHING";
+      }
+      plate.textContent = ride.driver?.plate || (ride.status === "negotiating" ? "3 PPV DRIVERS VIEWING..." : "PPV DISPATCH");
+    }
+
+    function updateMatchGauge() {
+      const baseFare = estimateQuote(routeDistance, selectedTier);
+      const percent = Math.max(18, Math.min(96, Math.round(96 - Math.max(0, baseFare - requestedFare) / baseFare * 125)));
+      $("#match-percent").textContent = `${percent}%`;
+      $("#match-label").textContent = percent >= 78 ? `${percent}% Instant Match` : "Low Bid · Slower Match";
+      $("#match-fill").style.width = `${percent}%`;
+      $("#match-fill").parentElement.classList.toggle("low", percent < 55);
+      $("#bid-fare").textContent = `$${money(requestedFare)}`;
+    }
+
+    function updateSplitSummary(fare) {
+      const count = Number($("#party-size").value);
+      partySize = count;
+      const amount = Math.round(fare / count);
+      $("#split-summary").classList.toggle("hidden", count < 2);
+      $("#split-amount").textContent = currency === "JMD" ? `$${money(amount)} JMD / US$${(amount / 158).toFixed(2)}` : `US$${(amount / 158).toFixed(2)} / $${money(amount)} JMD`;
+      const share = $("#share-split");
+      share.dataset.shareText = `YARDRIDE squad fare split: ${count} riders, $${money(fare)} JMD total (${currency === "JMD" ? `$${money(amount)} JMD` : `US$${(amount / 158).toFixed(2)}`} each). ${pickup.name} to ${dropoff.name}. Pay your share with Lynk or Cash.`;
+    }
+
+    async function refreshDrivers() {
+      try {
+        const { drivers } = await api("/api/state");
+        drivers.forEach(driver => {
+          const existing = driverMarkers.get(driver.id);
+          const point = [driver.lat, driver.lng];
+          if (existing) {
+            if (driver.id !== movingDriver) {
+              const previous = existing._yardridePosition || existing.getLatLng();
+              const bearing = bearingBetween(previous, { lat: driver.lat, lng: driver.lng });
+              existing.setIcon(carIcon(bearing));
+              existing.setLatLng(point);
+              existing._yardridePosition = { lat: driver.lat, lng: driver.lng };
+            }
+          }
+          else {
+            const marker = L.marker(point, { icon: carIcon(0) }).bindPopup(`<b>${driver.plate}</b><br>${driver.vehicle} · ★ ${driver.rating} · Ice Cold A/C ✓`).addTo(map);
+            marker._yardridePosition = { lat: driver.lat, lng: driver.lng };
+            driverMarkers.set(driver.id, marker);
+          }
+        });
+      } catch (error) {
+        console.warn("Could not refresh PPV drivers:", error.message);
+      }
+    }
+
+    function showRide(ride) {
+      currentRideStatus = ride.status;
+      if (ride.mode === "negotiate") {
+        bookingMode = "negotiate";
+        requestedFare = ride.fare_jmd;
+        $$("[data-mode]").forEach(button => button.classList.toggle("selected", button.dataset.mode === bookingMode));
+        updateQuote();
+      }
+      const sheet = $(".ride-sheet");
+      sheet.dataset.stage = "active";
+      sheet.dataset.status = ride.status;
+      if ($("#booking-controls").contains(document.activeElement)) document.activeElement.blur();
+      $("#booking-controls").setAttribute("aria-hidden", "true");
+      $("#ride-live").setAttribute("aria-hidden", "false");
+      $("#ride-status-kicker").textContent = ride.status === "completed" ? "TRIP COMPLETE" : (ride.status === "cancelled" ? "RIDE CANCELLED" : "LIVE CHARTER");
+      $("#active-pickup").textContent = ride.pickup.label;
+      $("#active-dropoff").textContent = ride.dropoff.label;
+      $("#ride-status-text").textContent = statusLabels[ride.status] || ride.status;
+      const canStartAnother = ["completed", "cancelled"].includes(ride.status);
+      $("#book-another").classList.toggle("hidden", !canStartAnother);
+      $("#book-another").textContent = ride.status === "cancelled" ? "PLAN ANOTHER RIDE" : "NEW RIDE";
+      $("#cancel-ride").classList.toggle("hidden", !["searching", "negotiating", "assigned", "arrived", "in_transit"].includes(ride.status));
+      updateIsland(ride);
+      if (ride.status === "negotiating") renderCounterOffers(ride);
+      else {
+        offersSignature = "";
+        $("#counter-offers").classList.remove("is-visible");
+        $("#counter-offers").setAttribute("aria-hidden", "true");
+      }
+      const card = $("#assigned-driver");
+      const pinCard = $("#pin-card");
+      const share = $("#share-trip");
+      if (ride.driver && ride.status !== "cancelled") {
+        const driver = ride.driver;
+        card.classList.remove("hidden");
+        const initials = driver.name.split(/\s+/).map(part => part[0]).slice(0, 2).join("");
+        card.innerHTML = `<div class="active-driver"><span class="active-driver-avatar">${escapeHtml(initials)}</span><span class="active-driver-copy"><b>${escapeHtml(driver.name)} <i class="verified-shield">✓</i></b><small>${escapeHtml(driver.vehicle)} · ★ ${driver.rating}</small></span><span class="active-plate">${escapeHtml(driver.plate)}</span></div>`;
+        pinCard.classList.remove("hidden");
+        pinCard.innerHTML = `<span>RIDER SAFETY PIN</span><span class="pin-value">${escapeHtml(ride.pin)}</span>`;
+        share.classList.toggle("hidden", !["assigned", "arrived", "in_transit"].includes(ride.status));
+        const text = `My YARDRIDE trip: ${ride.pickup.label} to ${ride.dropoff.label}. Driver ${driver.name}, ${driver.plate}. Rider PIN ${ride.pin}.`;
+        share.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        if (ride.status === "assigned") animateDriver(driver, ride.pickup, ride.id);
+        if (ride.status === "arrived" || ride.status === "completed") {
+          if (moveFrame) cancelAnimationFrame(moveFrame);
+          moveFrame = null;
+          if (ride.status === "completed") {
+            movingDriver = null;
+            movingRideId = null;
+          }
+          if (ride.status === "arrived" && driverMarkers.has(driver.id)) {
+            driverMarkers.get(driver.id).setLatLng([ride.pickup.lat, ride.pickup.lng]);
+          }
+        }
+      } else {
+        card.classList.add("hidden");
+        pinCard.classList.add("hidden");
+        share.classList.add("hidden");
+      }
+      if (ride.status === "completed") updateIsland(null);
+    }
+
+    function renderCounterOffers(ride) {
+      const container = $("#counter-offers");
+      if (!ride.counter_offers?.length || ride.status !== "negotiating") {
+        container.classList.remove("is-visible");
+        container.setAttribute("aria-hidden", "true");
+        return;
+      }
+      const signature = JSON.stringify(ride.counter_offers.map(offer => [offer.id, offer.fare_jmd, offer.countered]));
+      if (signature === offersSignature) return;
+      offersSignature = signature;
+      container.innerHTML = ride.counter_offers.map(offer => `
+        <article class="counter-card glass">
+          <div class="counter-driver"><span class="counter-avatar">${escapeHtml(offer.name.split(" ").map(part => part[0]).slice(0, 2).join(""))}</span><span><b>${escapeHtml(offer.name)} <i class="verified-shield">✓</i></b><small>${escapeHtml(offer.plate)} · ★ ${offer.rating} · ${offer.eta_minutes} min</small></span><b class="counter-fare">$${money(offer.fare_jmd)}</b></div>
+          <div class="counter-vehicle">${escapeHtml(offer.vehicle)} <span>ICE COLD A/C ✓</span></div>
+          <div class="counter-actions"><button class="counter-secondary" data-bid-action="counter_bid" data-driver="${offer.id}" data-fare="${offer.fare_jmd}">COUNTER −$100</button><button class="counter-accept" data-bid-action="accept_match" data-driver="${offer.id}">LOCK MATCH</button></div>
+          <div class="counter-timer" aria-hidden="true"><i></i></div>
+        </article>`).join("");
+      container.setAttribute("aria-hidden", "false");
+      container.classList.add("is-visible");
+    }
+
+    let movingDriver;
+    let movingRideId;
+    let moveFrame;
+    function animateDriver(driver, target, rideId) {
+      if (movingDriver === driver.id && movingRideId === rideId) return;
+      if (!driverMarkers.has(driver.id)) {
+        const marker = L.marker([driver.lat, driver.lng], { icon: carIcon(bearingBetween(driver, target)) }).addTo(map);
+        driverMarkers.set(driver.id, marker);
+      }
+      const marker = driverMarkers.get(driver.id);
+      marker.setIcon(carIcon(bearingBetween(driver, target)));
+      if (moveFrame) cancelAnimationFrame(moveFrame);
+      if (movingDriver !== driver.id) marker.setLatLng([driver.lat, driver.lng]);
+      movingDriver = driver.id;
+      movingRideId = rideId;
+      const origin = marker.getLatLng();
+      const started = performance.now();
+      const duration = 18000;
+      const animate = now => {
+        const progress = Math.min(1, (now - started) / duration);
+        marker.setLatLng([origin.lat + (target.lat - origin.lat) * progress, origin.lng + (target.lng - origin.lng) * progress]);
+        if (progress < 1) moveFrame = requestAnimationFrame(animate);
+      };
+      moveFrame = requestAnimationFrame(animate);
+    }
+
+    async function pollRide() {
+      if (!currentRideId) return;
+      try {
+        const { ride } = await api(`/api/rides/${currentRideId}/status`);
+        showRide(ride);
+        if (ride.status === "completed") {
+          clearInterval(ridePollTimer);
+          toast("Trip complete. Thanks for riding with YARDRIDE.");
+        }
+      } catch (error) {
+        clearInterval(ridePollTimer);
+        if (error.message === "That ride is not available in local mode.") {
+          currentRideId = null;
+          currentRideStatus = null;
+          localStorage.removeItem("yardride-current-ride");
+          $("#book-ride").disabled = false;
+          $(".ride-sheet").dataset.stage = "booking";
+          $(".ride-sheet").dataset.status = "";
+          $("#booking-controls").setAttribute("aria-hidden", "false");
+          $("#ride-live").setAttribute("aria-hidden", "true");
+          updateIsland(null);
+          toast("That trip is no longer available. You can request a new ride.");
+        } else {
+          console.warn("Could not refresh the active ride:", error.message);
+        }
+      }
+    }
+
+    const routeControl = $(".route-map-control");
+    const routePicker = $("#route-picker");
+    $("#route-pill").addEventListener("click", () => {
+      const open = routeControl.classList.toggle("route-picker-open");
+      $("#route-pill").setAttribute("aria-expanded", String(open));
+      routePicker.setAttribute("aria-hidden", String(!open));
+    });
+    $$(".pin-select").forEach(button => button.addEventListener("click", () => {
+      selecting = button.dataset.select;
+      $("#map-selection-target").textContent = selecting;
+      $("#map-selection-banner").classList.remove("hidden");
+      toast(`Tap the map to set your ${selecting}.`);
+    }));
+    ["pickup", "dropoff"].forEach(type => {
+      $(`#${type}-label`).addEventListener("input", event => {
+        (type === "pickup" ? pickup : dropoff).name = event.target.value.trim();
+        updateQuote();
+      });
+    });
+    $("#cancel-map-select").addEventListener("click", () => {
+      selecting = null;
+      $("#map-selection-banner").classList.add("hidden");
+    });
+    map.on("click", event => {
+      if (!selecting) return;
+      setPoint(selecting, event.latlng);
+      selecting = null;
+      $("#map-selection-banner").classList.add("hidden");
+      routeControl.classList.remove("route-picker-open");
+      $("#route-pill").setAttribute("aria-expanded", "false");
+      routePicker.setAttribute("aria-hidden", "true");
+    });
+    $$(".landmark-chip").forEach(button => button.addEventListener("click", () => {
+      const landmark = config.landmarks.find(item => item.name === button.dataset.landmark);
+      if (!landmark) return;
+      const target = selecting || "dropoff";
+      setPoint(target, landmark, landmark.name);
+      selecting = null;
+      $("#map-selection-banner").classList.add("hidden");
+      routeControl.classList.remove("route-picker-open");
+      $("#route-pill").setAttribute("aria-expanded", "false");
+      routePicker.setAttribute("aria-hidden", "true");
+      map.flyTo([landmark.lat, landmark.lng], Math.max(13, map.getZoom()));
+    }));
+    $$(".tier-card").forEach(button => button.addEventListener("click", () => {
+      selectedTier = button.dataset.tier;
+      $$(".tier-card").forEach(card => card.classList.toggle("selected", card === button));
+      if (bookingMode === "negotiate") requestedFare = estimateQuote(routeDistance, selectedTier);
+      updateQuote();
+    }));
+    $$("[data-mode]").forEach(button => button.addEventListener("click", () => {
+      bookingMode = button.dataset.mode;
+      $$("[data-mode]").forEach(item => item.classList.toggle("selected", item === button));
+      $("#bid-panel").classList.toggle("is-visible", bookingMode === "negotiate");
+      $("#bid-panel").setAttribute("aria-hidden", String(bookingMode !== "negotiate"));
+      requestedFare = estimateQuote(routeDistance, selectedTier);
+      updateQuote();
+    }));
+    $("#trip-extras-details").addEventListener("toggle", event => {
+      const details = event.currentTarget;
+      if (details.open) {
+        setTimeout(() => details.scrollIntoView({ behavior: "smooth", block: "nearest" }), 80);
+      }
+    });
+    $("#bid-decrease").addEventListener("click", () => {
+      requestedFare = Math.max(100, requestedFare - 100);
+      updateQuote();
+    });
+    $("#bid-increase").addEventListener("click", () => {
+      requestedFare = Math.min(1000000, requestedFare + 100);
+      updateQuote();
+    });
+    $("#party-size").addEventListener("change", () => updateQuote());
+    $$(".note-chip").forEach(button => button.addEventListener("click", () => {
+      if (selectedNotes.has(button.dataset.note)) selectedNotes.delete(button.dataset.note);
+      else selectedNotes.add(button.dataset.note);
+      button.classList.toggle("selected", selectedNotes.has(button.dataset.note));
+    }));
+    $("#share-split").addEventListener("click", () => {
+      const message = $("#share-split").dataset.shareText;
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener");
+    });
+    $("#book-another").addEventListener("click", () => {
+      if (ridePollTimer) clearInterval(ridePollTimer);
+      ridePollTimer = null;
+      currentRideId = null;
+      currentRideStatus = null;
+      localStorage.removeItem("yardride-current-ride");
+      $("#book-ride").disabled = false;
+      offersSignature = "";
+      bookingMode = "instant";
+      requestedFare = 0;
+      selectedNotes.clear();
+      $$(".note-chip").forEach(button => button.classList.remove("selected"));
+      $$("[data-mode]").forEach(button => button.classList.toggle("selected", button.dataset.mode === "instant"));
+      $("#bid-panel").classList.remove("is-visible");
+      $("#bid-panel").setAttribute("aria-hidden", "true");
+      $("#trip-extras-details").open = false;
+      $("#ride-live").setAttribute("aria-hidden", "true");
+      $("#booking-controls").setAttribute("aria-hidden", "false");
+      $(".ride-sheet").dataset.stage = "booking";
+      $(".ride-sheet").dataset.mode = "instant";
+      $(".ride-sheet").dataset.status = "";
+      $("#counter-offers").classList.remove("is-visible");
+      $("#counter-offers").setAttribute("aria-hidden", "true");
+      $("#map-selection-banner").classList.add("hidden");
+      updateQuote();
+    });
+    $("#cancel-ride").addEventListener("click", async () => {
+      if (!currentRideId || !window.confirm("Cancel this ride?")) return;
+      const button = $("#cancel-ride");
+      button.disabled = true;
+      try {
+        const { ride } = await api(`/api/rides/${currentRideId}/action`, {
+          method: "POST",
+          body: JSON.stringify({ action: "cancel" }),
+        });
+        showRide(ride);
+        if (ridePollTimer) clearInterval(ridePollTimer);
+        ridePollTimer = null;
+        toast("Ride cancelled. You can request another ride.");
+        window.dispatchEvent(new Event("yardride:dispatch-refresh"));
+        window.dispatchEvent(new Event("yardride:activity-refresh"));
+      } catch (error) {
+        toast(error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    $("#counter-offers").addEventListener("click", async event => {
+      const button = event.target.closest("[data-bid-action]");
+      if (!button || !currentRideId) return;
+      button.disabled = true;
+      try {
+        const action = button.dataset.bidAction;
+        const body = { ride_id: currentRideId, action, driver_id: button.dataset.driver };
+        if (action === "counter_bid") body.fare_jmd = Math.max(requestedFare, Number(button.dataset.fare) - 100);
+        const { ride } = await api("/api/rides/bid", { method: "POST", body: JSON.stringify(body) });
+        showRide(ride);
+        if (action === "accept_match") toast("Driver matched. Your verified PPV is on the way.");
+        else toast("Counter-bid sent to your driver.");
+        window.dispatchEvent(new Event("yardride:dispatch-refresh"));
+        window.dispatchEvent(new Event("yardride:activity-refresh"));
+      } catch (error) {
+        toast(error.message);
+        button.disabled = false;
+      }
+    });
+    $("#locate-btn").addEventListener("click", () => map.flyTo([18.0179, -76.8099], 13));
+    $("#book-ride").addEventListener("click", async () => {
+      if (currentRideId && currentRideStatus !== "completed") {
+        toast("Your current ride is still active.");
+        return;
+      }
+      const button = $("#book-ride");
+      button.disabled = true;
+      if (ridePollTimer) clearInterval(ridePollTimer);
+      currentRideId = null;
+      currentRideStatus = null;
+      $("#book-ride").disabled = false;
+      localStorage.removeItem("yardride-current-ride");
+      try {
+        const { ride } = await api("/api/rides/request", {
+          method: "POST",
+          body: JSON.stringify({
+            pickup: { lat: pickup.lat, lng: pickup.lng, label: pickup.name },
+            dropoff: { lat: dropoff.lat, lng: dropoff.lng, label: dropoff.name },
+            distance_km: Math.max(0.2, routeDistance),
+            minutes: routeMinutes,
+            tier: selectedTier,
+            mode: bookingMode,
+            fare_jmd: bookingMode === "negotiate" ? requestedFare : estimateQuote(routeDistance, selectedTier),
+            payment: $("#payment-method").value,
+            passenger: $("#passenger-name").value,
+            party_size: partySize,
+            notes: [...selectedNotes],
+          }),
+        });
+        currentRideId = ride.id;
+        localStorage.setItem("yardride-current-ride", ride.id);
+        showRide(ride);
+        ridePollTimer = setInterval(pollRide, 1000);
+        window.dispatchEvent(new Event("yardride:dispatch-refresh"));
+        window.dispatchEvent(new Event("yardride:activity-refresh"));
+        toast(bookingMode === "negotiate" ? "Offer broadcast. Nearby PPV drivers are responding." : "Ride requested. Finding your verified PPV driver.");
+      } catch (error) {
+        button.disabled = false;
+        toast(error.message);
+      }
+    });
+
+    updateRoute();
+    refreshDrivers();
+    setInterval(refreshDrivers, 1200);
+    if (currentRideId) pollRide().then(() => {
+      if (currentRideId) ridePollTimer = setInterval(pollRide, 1000);
+    });
+  }
+
+  function initDriver() {
+    const list = $("#ride-pings");
+    let updating = false;
+    async function refresh() {
+      if (updating) return;
+      updating = true;
+      try {
+        const { rides } = await api("/api/state");
+        const active = rides.filter(ride => ride.status !== "completed" && ride.status !== "cancelled");
+        const completed = rides.filter(ride => ride.status === "completed").length;
+        $("#driver-completed").textContent = completed;
+        if (!active.length) {
+          list.innerHTML = '<div class="empty-state">No active pings right now. New requests appear here automatically.</div>';
+          return;
+        }
+        list.innerHTML = active.map(ride => {
+          const action = ride.status === "searching" || ride.status === "negotiating" ? "accept" : (ride.status === "assigned" ? "arrive" : "complete");
+          const label = action === "accept" ? "ACCEPT RIDE" : (action === "arrive" ? "ARRIVE AT PICKUP" : "COMPLETE TRIP");
+          const actionMarkup = ride.status === "searching" || ride.status === "negotiating" || ride.status === "assigned" || ride.status === "arrived"
+            ? `<button class="action-button" data-ride="${ride.id}" data-action="${action}">${label}</button>`
+            : `<span class="status-badge ${ride.status}">${statusLabels[ride.status]}</span>`;
+          return `<article class="ride-item">
+            <div class="ride-item-top"><b>${escapeHtml(ride.passenger)}</b><small>${new Date(ride.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></div>
+            <div class="ride-route"><span><small>PICKUP</small><br>${escapeHtml(ride.pickup.label)}</span><span><small>DROP-OFF</small><br>${escapeHtml(ride.dropoff.label)}</span></div>
+            <div class="ride-meta"><span>${ride.distance_km} km · ${ride.minutes} min · ${escapeHtml(ride.tier_name)}</span><b>$${money(ride.fare_jmd)} JMD payout</b></div>
+            ${ride.notes?.length ? `<div class="dispatch-notes">✦ DRIVER NOTE · ${ride.notes.map(escapeHtml).join(" · ")}</div>` : ""}
+            ${ride.pin && ride.driver ? `<div class="dispatch-pin">RIDER SAFETY PIN <b>${escapeHtml(ride.pin)}</b></div>` : ""}
+            ${actionMarkup}
+          </article>`;
+        }).join("");
+        $("#drive-alert").classList.toggle("hidden", !rides.some(ride => ride.status === "searching"));
+      } catch (error) {
+        toast(error.message);
+      } finally {
+        updating = false;
+      }
+    }
+    list.addEventListener("click", async event => {
+      const button = event.target.closest("[data-ride][data-action]");
+      if (!button) return;
+      button.disabled = true;
+      try {
+        await api(`/api/rides/${button.dataset.ride}/action`, { method: "POST", body: JSON.stringify({ action: button.dataset.action }) });
+        toast(button.dataset.action === "accept" ? "Ride accepted. Driver assigned." : `Trip marked ${button.dataset.action === "arrive" ? "arrived" : "complete"}.`);
+        window.dispatchEvent(new Event("yardride:activity-refresh"));
+        window.dispatchEvent(new Event("yardride:founder-refresh"));
+        await refresh();
+      } catch (error) {
+        button.disabled = false;
+        toast(error.message);
+        await refresh();
+      }
+    });
+    window.addEventListener("yardride:dispatch-refresh", refresh);
+    refresh();
+    setInterval(refresh, 3000);
+  }
+
+  function initAdmin() {
+    async function refresh() {
+      try {
+        const data = await api("/api/dashboard");
+        $("#gross-jmd").textContent = `$${money(data.gross_jmd)}`;
+        $("#gross-usd").textContent = `US$${data.gross_usd.toFixed(2)} · completed trips`;
+        $("#commission-jmd").textContent = `$${money(data.commission_jmd)}`;
+        $("#commission-usd").textContent = `US$${data.commission_usd.toFixed(2)} earned`;
+        $("#fleet-count").textContent = `${data.active_drivers} / ${data.fleet_size}`;
+        $("#fleet-utilization").textContent = `${Math.round(data.active_drivers / Math.max(1, data.fleet_size) * 100)}% utilization`;
+        const completed = data.rides.filter(ride => ride.status === "completed").length;
+        const active = data.rides.length - completed;
+        $("#completed-count").textContent = completed;
+        $("#active-trips").textContent = `${active} active trips`;
+        const ledger = $("#trip-ledger");
+        if (!data.rides.length) {
+          ledger.innerHTML = '<tr><td colspan="5" class="empty-state">No rides yet. New ride activity will appear here.</td></tr>';
+          return;
+        }
+        ledger.innerHTML = data.rides.map(ride => `<tr>
+          <td>#${ride.id}</td><td>${escapeHtml(ride.passenger)}</td>
+          <td class="route-cell">${escapeHtml(ride.pickup.label)} → ${escapeHtml(ride.dropoff.label)}<br><small>$${money(ride.fare_jmd)} JMD · ${escapeHtml(ride.tier_name)}</small></td>
+          <td>$${money(ride.commission_jmd)} JMD</td>
+          <td><span class="status-badge ${ride.status}">${statusLabels[ride.status] || ride.status}</span></td>
+        </tr>`).join("");
+      } catch (error) {
+        toast(error.message);
+      }
+    }
+    window.addEventListener("yardride:founder-refresh", refresh);
+    refresh();
+    setInterval(refresh, 4000);
+  }
+
+  function initActivity() {
+    const empty = $("#activity-empty");
+    const receipt = $("#activity-receipt");
+    const history = $("#activity-history-list");
+    async function refresh() {
+      try {
+        const { rides } = await api("/api/state");
+        const active = rides.find(ride => ride.status !== "completed");
+        const remembered = rides.find(ride => ride.id === localStorage.getItem("yardride-current-ride"));
+        const featured = active || remembered || rides[0];
+        if (!featured) {
+          empty.classList.remove("hidden");
+          receipt.classList.add("hidden");
+          $("#activity-current-status").textContent = "No active trip";
+          $("#activity-status-badge").textContent = "READY";
+          history.innerHTML = '<div class="empty-state">Your rides will appear here.</div>';
+          return;
+        }
+
+        empty.classList.add("hidden");
+        receipt.classList.remove("hidden");
+        const label = statusLabels[featured.status] || featured.status;
+        $("#activity-current-status").textContent = active ? label : "Most recent trip";
+        const badge = $("#activity-status-badge");
+        badge.textContent = label.toUpperCase();
+        badge.className = `status-badge ${featured.status}`;
+        const driver = featured.driver;
+        receipt.innerHTML = `
+          <div class="receipt-route"><span><small>PICKUP</small><b>${escapeHtml(featured.pickup.label)}</b></span><span><small>DROP-OFF</small><b>${escapeHtml(featured.dropoff.label)}</b></span></div>
+          ${driver ? `<div class="receipt-row"><span>VERIFIED DRIVER</span><b>${escapeHtml(driver.name)} · ★ ${driver.rating}</b></div><div class="receipt-row"><span>RED-PLATE PPV</span><b>${escapeHtml(driver.plate)} · ${escapeHtml(driver.vehicle)}</b></div>` : ""}
+          <div class="receipt-row"><span>TRIP / PAYMENT</span><b>${escapeHtml(featured.tier_name)} · ${escapeHtml(featured.payment)}</b></div>
+          <div class="receipt-row"><span>DISTANCE · ETA</span><b>${featured.distance_km} km · ${featured.minutes} min</b></div>
+          <div class="receipt-row"><span>FARE</span><b>$${money(featured.fare_jmd)} JMD · US$${Number(featured.fare_usd).toFixed(2)}</b></div>
+          ${featured.party_size > 1 ? `<div class="receipt-row"><span>SQUAD SPLIT · ${featured.party_size} RIDERS</span><b>$${money(featured.fare_per_person_jmd)} JMD · US$${Number(featured.fare_per_person_usd).toFixed(2)} EACH</b></div>` : ""}
+          ${featured.notes?.length ? `<div class="dispatch-notes">✦ PICKUP NOTE · ${featured.notes.map(escapeHtml).join(" · ")}</div>` : ""}
+          <div class="receipt-pin"><span>RIDER VERIFICATION PIN</span><b>${escapeHtml(featured.pin)}</b></div>
+          ${driver && active ? `<a class="whatsapp-button" href="https://wa.me/?text=${encodeURIComponent(`My YARDRIDE trip: ${featured.pickup.label} to ${featured.dropoff.label}. Driver ${driver.name}, ${driver.plate}. Rider PIN ${featured.pin}.`)}" target="_blank" rel="noopener">↗ Share Live Trip via WhatsApp</a>` : ""}
+        `;
+        history.innerHTML = rides.slice(0, 8).map(ride => `<article class="history-item">
+          <div class="history-route"><b>${escapeHtml(ride.pickup.label)} → ${escapeHtml(ride.dropoff.label)}</b><span class="status-badge ${ride.status}">${escapeHtml(statusLabels[ride.status] || ride.status)}</span></div>
+          <div class="history-meta"><span>${new Date(ride.created_at).toLocaleDateString()} · ${escapeHtml(ride.tier_name)}</span><b>$${money(ride.fare_jmd)} JMD</b></div>
+        </article>`).join("");
+      } catch (error) {
+        toast(error.message);
+      }
+    }
+    window.addEventListener("yardride:activity-refresh", refresh);
+    refresh();
+    setInterval(refresh, 4000);
+  }
+
+  function initFounderTracker() {
+    const container = $("#founder-fleet-list");
+    async function refresh() {
+      try {
+        const { drivers } = await api("/api/drivers");
+        container.innerHTML = drivers.map(driver => `<div class="fleet-driver ${driver.available ? "" : "offline"}">
+          <span class="fleet-dot"></span><b>${escapeHtml(driver.plate)} · ${escapeHtml(driver.vehicle)}</b>
+          <small>${driver.available ? `AVAILABLE · ${driver.lat.toFixed(3)}, ${driver.lng.toFixed(3)}` : "ON ACTIVE TRIP"}</small>
+        </div>`).join("");
+      } catch (error) {
+        toast(error.message);
+      }
+    }
+    window.addEventListener("yardride:founder-refresh", refresh);
+    refresh();
+    setInterval(refresh, 6000);
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+  }
+})();

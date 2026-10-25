@@ -1,0 +1,50 @@
+<section class="ride-sheet glass" aria-label="Ride booking" data-stage="booking" data-mode="instant">
+  <div class="sheet-grab"></div>
+  <div class="booking-controls" id="booking-controls">
+    <div class="booking-heading">
+      <div><p class="eyebrow">YOUR RIDE</p><h1 id="booking-title">Choose a vehicle</h1><small class="selected-tier-label" id="selected-tier-label">Express Charter</small></div>
+      <div class="route-quote"><b id="route-distance">— km</b><span>·</span><b id="route-time">— min</b></div>
+    </div>
+    <div class="quote-row progressive-route-summary"><span id="route-summary">Sovereign Centre → Devon House</span></div>
+    <div class="tier-grid">
+      {% for key, tier in tiers.items() %}
+      <button class="tier-card {{ 'selected' if loop.first else '' }}" data-tier="{{ key }}">
+        <span class="tier-icon" aria-hidden="true">
+          <svg viewBox="0 0 40 24"><path d="M5 15 8 8q1-2 4-2h15q3 0 5 3l3 6v4h-3a3 3 0 0 1-6 0H14a3 3 0 0 1-6 0H5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m11 8-2 6h21l-4-6z" fill="currentColor" opacity=".24"/><circle cx="11" cy="19" r="2" fill="currentColor"/><circle cx="29" cy="19" r="2" fill="currentColor"/></svg>
+        </span>
+        <span class="tier-name">{{ tier.name }}<small>{{ 'Fast local sedan · 3 seats' if key == 'express' else ('Verified PPV · 4 seats' if key == 'executive' else 'Groups · luggage · 6 seats') }}</small></span>
+        <span class="tier-fare"><b class="tier-price" data-tier-price="{{ key }}">$— JMD</b><small data-tier-usd="{{ key }}">US$—</small></span>
+      </button>
+      {% endfor %}
+    </div>
+    <div class="bid-panel" id="bid-panel" aria-hidden="true">
+      <div class="bid-controls"><button type="button" id="bid-decrease" aria-label="Decrease offer by 100 dollars">− $100</button><div><small>YOUR OFFER · JMD</small><b id="bid-fare">$0</b></div><button type="button" id="bid-increase" aria-label="Increase offer by 100 dollars">+ $100</button></div>
+      <div class="match-meter"><div class="match-copy"><span id="match-label">96% Instant Match</span><b id="match-percent">96%</b></div><div class="match-track"><i id="match-fill"></i></div></div>
+    </div>
+    <div class="booking-footer">
+      <div class="booking-quick-actions">
+        <label class="payment-pill" aria-label="Payment method"><span>PAY</span><select id="payment-method">{% for payment in payment_methods %}<option value="{{ payment }}">{{ payment.replace("Cash (JMD)", "Cash · JMD").replace("Cash (USD)", "Cash · USD").replace("Lynk / NCB Instant Transfer", "Lynk").replace("Card on File", "Card") }}</option>{% endfor %}</select></label>
+        <div class="booking-mode compact-mode" role="group" aria-label="Fare mode"><button class="selected" data-mode="instant">INSTANT</button><button data-mode="negotiate">NEGOTIATE</button></div>
+      </div>
+      <button class="primary-button" id="book-ride"><span id="book-label">REQUEST RIDE</span><b id="selected-fare">$— JMD</b></button>
+      <details class="trip-extras" id="trip-extras-details">
+        <summary>Add Pickup Note <span>·</span> Split Fare</summary>
+        <div class="extras-content">
+          <label class="split-select">PASSENGERS<select id="party-size"><option value="1">Solo</option><option value="2">Split 2 ways</option><option value="3">Split 3 ways</option><option value="4">Split 4 ways</option></select></label>
+          <label class="passenger-input">NAME<input id="passenger-name" value="Island Rider" maxlength="80"></label>
+          <div class="note-selector"><small>PICKUP NOTE · DRIVER SEES THIS LIVE</small><div>{% for note in ["At the Sovereign gate", "By the security booth", "Have luggage", "Call outside"] %}<button type="button" class="note-chip" data-note="{{ note }}">{{ note }}</button>{% endfor %}</div></div>
+          <div class="split-summary hidden" id="split-summary"><span>Each rider pays</span><b id="split-amount">—</b><button type="button" id="share-split">↗ SHARE</button></div>
+        </div>
+      </details>
+    </div>
+  </div>
+  <section class="ride-live" id="ride-live" aria-live="polite" aria-hidden="true">
+    <div class="active-trip-heading"><span class="status-pulse"></span><div><small id="ride-status-kicker">LIVE CHARTER</small><b id="ride-status-text">Searching for PPV Driver</b></div></div>
+    <div class="active-trip-route"><span id="active-pickup">Sovereign Centre</span><i aria-hidden="true"></i><span id="active-dropoff">Devon House</span></div>
+    <div class="driver-card hidden" id="assigned-driver"></div>
+    <div class="pin-card hidden" id="pin-card"></div>
+    <a class="whatsapp-button hidden" id="share-trip" target="_blank" rel="noopener">↗ Share Live Trip via WhatsApp</a>
+    <button type="button" class="secondary-button hidden" id="cancel-ride">CANCEL RIDE</button>
+    <button type="button" class="secondary-button hidden" id="book-another">NEW RIDE</button>
+  </section>
+</section>

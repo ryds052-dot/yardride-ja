@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#06070A">
+  <meta name="description" content="YARDRIDE — sovereign island mobility, built for Jamaica.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="YARDRIDE">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/yardride-180.png') }}">
+  <link rel="icon" href="{{ url_for('static', filename='img/yardride-icon.svg') }}" type="image/svg+xml">
+  <title>{% block title %}YARDRIDE // Sovereign Island Mobility{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="{{ page }}-page">
+  <div class="device-frame">
+    <div class="device-screen">
+      <div class="status-bar" aria-label="Phone status bar">
+        <span class="status-time" id="status-time">9:41</span>
+        <span class="dynamic-island" id="dynamic-island" aria-live="polite">
+          <i class="island-beacon"></i>
+          <span class="island-idle">YARDRIDE <i>•</i> KINGSTON GPS LIVE</span>
+          <span class="island-waveform" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="island-copy"><span class="island-avatar" id="island-avatar">YR</span><span class="island-detail"><b id="island-eta">SEARCHING</b><small id="island-plate">PPV DISPATCH</small></span><span class="island-pin hidden" id="island-pin">PIN <b id="island-pin-value">----</b></span></span>
+        </span>
+        <span class="status-icons" aria-hidden="true"><i class="signal-icon">▂▄▆</i><i class="wifi-icon">⌁</i><i class="battery-icon"><b></b></i></span>
+      </div>
+      <main id="app-content">{% block content %}{% endblock %}</main>
+      <nav class="tab-bar glass" aria-label="App tabs">
+        <button class="tab-button active" data-tab="ride" aria-current="page"><span class="tab-icon">⌖</span><span>Ride</span></button>
+        <button class="tab-button" data-tab="drive"><span class="tab-icon">↗</span><span>Drive</span><i class="tab-alert hidden" id="drive-alert"></i></button>
+        <button class="tab-button" data-tab="activity"><span class="tab-icon">◷</span><span>Activity</span></button>
+        <button class="tab-button" data-tab="founder"><span class="tab-icon">◈</span><span>Founder</span></button>
+      </nav>
+      <div class="home-indicator" aria-hidden="true"><span></span></div>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    window.YARDRIDE_CONFIG = {{ {"landmarks": landmarks, "tiers": tiers, "payments": payment_methods}|tojson }};
+    window.YARDRIDE_PAGE = "app";
+  </script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  <script>
+    if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(error => console.warn("PWA service worker registration failed:", error)));
+    }
+  </script>
+</body>
+</html>
