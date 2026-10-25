@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from copy import deepcopy
 from math import asin, cos, radians, sin, sqrt
 from threading import RLock
 from time import time
@@ -224,7 +225,8 @@ def _create_ride(payload, mode="instant"):
     with lock:
         rides[ride["id"]] = ride
         _bump_state_revision()
-    return ride, None
+        ride_snapshot = deepcopy(ride)
+    return ride_snapshot, None
 
 
 def _assign_driver(ride, driver_data, fare_jmd=None):

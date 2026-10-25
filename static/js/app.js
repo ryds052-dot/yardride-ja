@@ -1014,11 +1014,8 @@
         return;
       }
       const button = $("#book-ride");
+      if (button.disabled) return;
       button.disabled = true;
-      currentRideId = null;
-      currentRideStatus = null;
-      $("#book-ride").disabled = false;
-      localStorage.removeItem("yardride-current-ride");
       try {
         const { ride } = await api("/api/rides/request", {
           method: "POST",
